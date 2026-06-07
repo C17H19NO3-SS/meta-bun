@@ -17,6 +17,7 @@ MetaBunPlugin g_MetaBunPlugin;
 ISmmAPI *g_SMAPI = nullptr;
 
 #ifdef COMPILE_WITH_SOURCE_SDK
+#include "toolframework/itoolentity.h"
 ICvar *g_pCVar = nullptr;
 ISmmPlugin *g_PLAPI = nullptr;
 PluginId g_PLID = 0;
@@ -75,6 +76,7 @@ bool MetaBunPlugin::Load(PluginId id, ISmmAPI *ismm, char *error, size_t maxlen,
 
 #ifdef COMPILE_WITH_SOURCE_SDK
     GET_V_IFACE_CURRENT(GetEngineFactory, m_pEngineServer, IVEngineServer, INTERFACEVERSION_VENGINESERVER);
+    GET_V_IFACE_ANY(GetServerFactory, m_pServerTools, IServerTools, VSERVERTOOLS_INTERFACE_VERSION);
     // PlayerInfoManager is not supported or exposed by the CS2 game server and is unused in our codebase.
     // GET_V_IFACE_CURRENT(GetServerFactory, m_pPlayerInfoManager, IPlayerInfoManager, INTERFACEVERSION_PLAYERINFOMANAGER);
     GET_V_IFACE_CURRENT(GetEngineFactory, g_pCVar, ICvar, CVAR_INTERFACE_VERSION);
@@ -1169,8 +1171,18 @@ void MetaBunPlugin::HandleActionCreateEntity(const std::unordered_map<std::strin
     if (cIt == p.end() || !m_pEngineServer) return;
     std::string className = cIt->second;
 #ifdef COMPILE_WITH_SOURCE_SDK
-    // Needs g_pServerTools->CreateEntityByName()
-    std::cout << "[MetaBun] Entity spawning requested: " << className << std::endl;
+    if (m_pServerTools) {
+        void* entity = m_pServerTools->CreateEntityByName(className.c_str());
+        if (entity) {
+            m_pServerTools->DispatchSpawn(entity);
+            std::cout << "[MetaBun] Entity spawned: " << className << std::endl;
+        } else {
+            std::cerr << "[MetaBun] Failed to create entity: " << className << std::endl;
+        }
+    } else {
+        std::cerr << "[MetaBun] IServerTools not available, cannot create entity: " << className << std::endl;
+        m_pEngineServer->ServerCommand(("ent_create " + className + "\n").c_str());
+    }
 #else
     std::cout << "[MetaBun Mock] CreateEntity: " << className << std::endl;
 #endif

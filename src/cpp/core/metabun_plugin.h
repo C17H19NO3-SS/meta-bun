@@ -42,6 +42,8 @@
  *   "forced_observer"    — oyuncuyu gözlemciye zorla/çıkar
  *   "pong"               — ping RTT yanıtı
  */
+class IServerTools;
+
 class MetaBunPlugin : public ISmmPlugin {
 public:
     MetaBunPlugin();
@@ -178,6 +180,7 @@ private:
     MenuHandler           m_MenuHandler;
 
     IVEngineServer*       m_pEngineServer;
+    IServerTools*         m_pServerTools;
     IPlayerInfoManager*   m_pPlayerInfoManager;
 
 #ifdef COMPILE_WITH_SOURCE_SDK
