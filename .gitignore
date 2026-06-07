@@ -1,0 +1,30 @@
+# Dependencies
+node_modules/
+.bun/
+bun.lockb
+
+# Build outputs
+dist/
+src/cpp/build/
+src/cpp/generated/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Databases
+*.db
+!configs/core/geoip.json
+
+# Logs
+logs/*.log
+*.log
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Project specific
+mmsource-*.tar.gz
