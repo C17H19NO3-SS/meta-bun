@@ -42,6 +42,8 @@ bun run build
 - [x] Bun Runtime Integration
 - [ ] Switch to MsgPack (Binary Protocol) for extreme high-tickrate performance
 - [ ] Plugin Isolation (Bun.Worker threads) to prevent blocking the main loop
+- [ ] Dynamic Memory Hooking (Signature/Offset based detours for undocumented engine functions)
+- [ ] Full CS2 Workshop & Map Cycle Management
 
 **Plugin System & APIs**
 - [x] Hot-Reloading for plugins
@@ -54,7 +56,12 @@ bun run build
 - [x] Admin & VIP Permissions System (Groups, Flags)
 - [x] GeoIP API support
 - [ ] Direct Source 2 Entity Property mapping to TypeScript getters/setters
-- [ ] Advanced SDK Hooks (e.g., pre/post weapon fire interception)
+- [ ] Entity Management API (Spawning & destroying weapons, props, physics objects)
+- [ ] Raycasting & Traceline API (Crucial for surf, KZ, and custom laser/aim plugins)
+- [ ] Protobuf UserMessages API (Custom HUDs, Screen Fades, Screen Shakes)
+- [ ] Asset Precaching & Downloads (Custom models, sounds, and materials)
+- [ ] Custom Particles & Visual Effects API (Blood, explosions, Source 2 particles)
+- [ ] Advanced SDK Hooks (e.g., pre/post weapon fire interception, bullet impacts)
 
 **Developer Experience (DX) & Community**
 - [x] CLI Tool for generating new plugins (`create-metabun-plugin`)
