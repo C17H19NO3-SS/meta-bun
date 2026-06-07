@@ -1,6 +1,6 @@
 {
   "name": "@meta-bun/core",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "High-performance TypeScript plugin framework for CS2 Metamod servers",
   "module": "./src/ts/natives.ts",
   "types": "./src/ts/natives.ts",
