@@ -13,10 +13,16 @@
 		"indentStyle": "tab"
 	},
 	"linter": {
-		"enabled": true,
-		"rules": {
-			"recommended": true
-		}
+	  "enabled": true,
+	  "rules": {
+	    "recommended": true,
+	    "suspicious": {
+	      "noExplicitAny": "off"
+	    },
+	    "style": {
+	      "noNonNullAssertion": "off"
+	    }
+	  }
 	},
 	"javascript": {
 		"formatter": {

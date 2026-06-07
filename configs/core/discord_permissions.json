@@ -1,20 +1,20 @@
 {
-  "plugins": {
-    "core": {
-      "can_send_messages": true,
-      "can_manage_channels": true
-    },
-    "admin-bans": {
-      "can_send_messages": true
-    },
-    "surf-hp-reward": {
-      "can_send_messages": true,
-      "can_manage_channels": false,
-      "allowed_channels": ["123456789012345678"]
-    },
-    "admin-logs": {
-      "can_send_messages": true,
-      "allowed_channels": ["987654321098765432"]
-    }
-  }
+	"plugins": {
+		"core": {
+			"can_send_messages": true,
+			"can_manage_channels": true
+		},
+		"admin-bans": {
+			"can_send_messages": true
+		},
+		"surf-hp-reward": {
+			"can_send_messages": true,
+			"can_manage_channels": false,
+			"allowed_channels": ["123456789012345678"]
+		},
+		"admin-logs": {
+			"can_send_messages": true,
+			"allowed_channels": ["987654321098765432"]
+		}
+	}
 }

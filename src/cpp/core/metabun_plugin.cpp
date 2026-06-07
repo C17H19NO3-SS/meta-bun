@@ -326,6 +326,7 @@ void MetaBunPlugin::OnPlayerChat(int clientIndex, const std::string& text) {
                     return; // Intercepted, do not forward to chat
                 }
             } catch (...) {
+                std::cerr << "[MetaBun Plugin] Warning: Non-numeric input in menu chat handler." << std::endl;
                 // Not a number, let it pass as normal chat
             }
         }
@@ -390,7 +391,9 @@ bool MetaBunPlugin::Hook_ClientCommand(int clientIndex, const std::string& comma
                     m_MenuHandler.OnMenuSelect(clientIndex, slotNum - 1);
                 }
                 return true;
-            } catch (...) {}
+            } catch (...) {
+                std::cerr << "[MetaBun Plugin] Caught exception in Hook_ClientCommand." << std::endl;
+            }
         }
     }
     

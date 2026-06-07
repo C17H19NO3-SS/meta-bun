@@ -1,18 +1,18 @@
 {
-  "players": {
-    "76561199227726024": {
-      "tag_text": "[OWNER]",
-      "tag_color": "{DarkRed}",
-      "name_color": "{Gold}",
-      "chat_color": "{Default}"
-    }
-  },
-  "groups": {
-    "Kurucu": {
-      "tag_text": "[Kurucu]",
-      "tag_color": "{Red}",
-      "name_color": "{Blue}",
-      "chat_color": "{Default}"
-    }
-  }
+	"players": {
+		"76561199227726024": {
+			"tag_text": "[OWNER]",
+			"tag_color": "{DarkRed}",
+			"name_color": "{Gold}",
+			"chat_color": "{Default}"
+		}
+	},
+	"groups": {
+		"Kurucu": {
+			"tag_text": "[Kurucu]",
+			"tag_color": "{Red}",
+			"name_color": "{Blue}",
+			"chat_color": "{Default}"
+		}
+	}
 }

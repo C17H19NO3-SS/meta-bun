@@ -2,10 +2,12 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import type { PluginContext } from "../plugin-system/context";
 
 declare global {
-  // eslint-disable-next-line no-var
-  var __metaBunContextStore: AsyncLocalStorage<PluginContext> | undefined;
-  // eslint-disable-next-line no-var
-  var __metaBunCommandSourceStore: AsyncLocalStorage<"chat" | "console"> | undefined;
+	// eslint-disable-next-line no-var
+	var __metaBunContextStore: AsyncLocalStorage<PluginContext> | undefined;
+	// eslint-disable-next-line no-var
+	var __metaBunCommandSourceStore:
+		| AsyncLocalStorage<"chat" | "console">
+		| undefined;
 }
 
 /**
@@ -15,13 +17,15 @@ declare global {
  * AsyncLocalStorage as the bundled runtime.
  */
 if (!globalThis.__metaBunContextStore) {
-  globalThis.__metaBunContextStore = new AsyncLocalStorage<PluginContext>();
+	globalThis.__metaBunContextStore = new AsyncLocalStorage<PluginContext>();
 }
 
 export const pluginContextStore = globalThis.__metaBunContextStore!;
 
 if (!globalThis.__metaBunCommandSourceStore) {
-  globalThis.__metaBunCommandSourceStore = new AsyncLocalStorage<"chat" | "console">();
+	globalThis.__metaBunCommandSourceStore = new AsyncLocalStorage<
+		"chat" | "console"
+	>();
 }
 
 export const commandSourceStore = globalThis.__metaBunCommandSourceStore!;
@@ -33,10 +37,11 @@ export const commandSourceStore = globalThis.__metaBunCommandSourceStore!;
  * @returns The active PluginContext.
  */
 export function GetContext(): PluginContext {
-  const context = pluginContextStore.getStore();
-  if (!context) {
-    throw new Error("[MetaBun] Native function called outside of active plugin context!");
-  }
-  return context;
+	const context = pluginContextStore.getStore();
+	if (!context) {
+		throw new Error(
+			"[MetaBun] Native function called outside of active plugin context!",
+		);
+	}
+	return context;
 }
-

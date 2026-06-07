@@ -1,9 +1,7 @@
 {
-    "76561199167210456": {
-        "flags": "z",
-        "immunity": 100,
-        "groups": [
-            "Kurucu"
-        ]
-    }
+	"76561199167210456": {
+		"flags": "z",
+		"immunity": 100,
+		"groups": ["Kurucu"]
+	}
 }

@@ -1,3 +1,3 @@
 export interface Weapon {
-  [key: string]: unknown;
+	[key: string]: unknown;
 }

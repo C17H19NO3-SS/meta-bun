@@ -1,7 +1,0 @@
-{
-  "name": "surf-hp-reward",
-  "version": "1.0.0",
-  "description": "Rewards players with HP on kill in surf maps.",
-  "main": "index.ts",
-  "author": "MetaBun Team"
-}

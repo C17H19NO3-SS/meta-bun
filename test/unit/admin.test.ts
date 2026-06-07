@@ -1,125 +1,125 @@
-import { describe, it, expect } from "bun:test";
+import { describe, expect, it } from "bun:test";
 import { AdminManager } from "../../src/ts/admins/manager";
 import { DatabaseManager } from "../../src/ts/shared/database";
 
 describe("Admin Yöneticisi (AdminManager) Birim Testleri", () => {
-  it("Yapılandırma dosyasındaki adminleri yüklemeli ve yetki kontrollerini doğru şekilde yapmalıdır", () => {
-    const adminManager = new AdminManager();
-    
-    // Custom set flags for testing
-    adminManager.SetFlags("STEAM_0:0:1", "a");
-    adminManager.SetFlags("STEAM_ROOT", "z");
+	it("Yapılandırma dosyasındaki adminleri yüklemeli ve yetki kontrollerini doğru şekilde yapmalıdır", () => {
+		const adminManager = new AdminManager();
 
-    expect(adminManager.GetFlags("STEAM_0:0:1")).toBe("a");
-    expect(adminManager.GetFlags("STEAM_ROOT")).toBe("z");
+		// Custom set flags for testing
+		adminManager.SetFlags("STEAM_0:0:1", "a");
+		adminManager.SetFlags("STEAM_ROOT", "z");
 
-    // Regular flag check
-    expect(adminManager.HasPermission("STEAM_0:0:1", "a")).toBe(true);
-    expect(adminManager.HasPermission("STEAM_0:0:1", "z")).toBe(false);
+		expect(adminManager.GetFlags("STEAM_0:0:1")).toBe("a");
+		expect(adminManager.GetFlags("STEAM_ROOT")).toBe("z");
 
-    // Root flag 'z' overrides all permission checks
-    expect(adminManager.HasPermission("STEAM_ROOT", "a")).toBe(true);
-    expect(adminManager.HasPermission("STEAM_ROOT", "z")).toBe(true);
-  });
+		// Regular flag check
+		expect(adminManager.HasPermission("STEAM_0:0:1", "a")).toBe(true);
+		expect(adminManager.HasPermission("STEAM_0:0:1", "z")).toBe(false);
 
-  it("Tanımlı olmayan bilinmeyen kullanıcılar için boş yetki döndürmeli ve izin vermemelidir", () => {
-    const adminManager = new AdminManager();
-    expect(adminManager.GetFlags("STEAM_UNKNOWN")).toBe("");
-    expect(adminManager.HasPermission("STEAM_UNKNOWN", "a")).toBe(false);
-  });
+		// Root flag 'z' overrides all permission checks
+		expect(adminManager.HasPermission("STEAM_ROOT", "a")).toBe(true);
+		expect(adminManager.HasPermission("STEAM_ROOT", "z")).toBe(true);
+	});
 
-  it("Admin bağışıklık derecelerini (immunity) ve hedef alabilme hiyerarşisini desteklemelidir", () => {
-    const adminManager = new AdminManager();
-    
-    adminManager.SetImmunity("STEAM_ROOT", 99);
-    adminManager.SetImmunity("STEAM_VIP", 50);
-    adminManager.SetImmunity("STEAM_PLAYER", 0);
+	it("Tanımlı olmayan bilinmeyen kullanıcılar için boş yetki döndürmeli ve izin vermemelidir", () => {
+		const adminManager = new AdminManager();
+		expect(adminManager.GetFlags("STEAM_UNKNOWN")).toBe("");
+		expect(adminManager.HasPermission("STEAM_UNKNOWN", "a")).toBe(false);
+	});
 
-    expect(adminManager.GetImmunity("STEAM_ROOT")).toBe(99);
-    expect(adminManager.GetImmunity("STEAM_VIP")).toBe(50);
-    expect(adminManager.GetImmunity("STEAM_PLAYER")).toBe(0);
-    expect(adminManager.GetImmunity("STEAM_UNKNOWN")).toBe(0);
+	it("Admin bağışıklık derecelerini (immunity) ve hedef alabilme hiyerarşisini desteklemelidir", () => {
+		const adminManager = new AdminManager();
 
-    // canTarget checks
-    expect(adminManager.CanTarget("STEAM_ROOT", "STEAM_VIP")).toBe(true);
-    expect(adminManager.CanTarget("STEAM_ROOT", "STEAM_PLAYER")).toBe(true);
-    expect(adminManager.CanTarget("STEAM_VIP", "STEAM_PLAYER")).toBe(true);
-    
-    // Lower immunity cannot target higher immunity
-    expect(adminManager.CanTarget("STEAM_VIP", "STEAM_ROOT")).toBe(false);
-    expect(adminManager.CanTarget("STEAM_PLAYER", "STEAM_VIP")).toBe(false);
-    expect(adminManager.CanTarget("STEAM_UNKNOWN", "STEAM_VIP")).toBe(false);
-  });
+		adminManager.SetImmunity("STEAM_ROOT", 99);
+		adminManager.SetImmunity("STEAM_VIP", 50);
+		adminManager.SetImmunity("STEAM_PLAYER", 0);
 
-  it("Admin grupları, grup kalıtımı, komut yetki ezme ve çalışma zamanı API'lerini desteklemelidir", () => {
-    const adminManager = new AdminManager();
+		expect(adminManager.GetImmunity("STEAM_ROOT")).toBe(99);
+		expect(adminManager.GetImmunity("STEAM_VIP")).toBe(50);
+		expect(adminManager.GetImmunity("STEAM_PLAYER")).toBe(0);
+		expect(adminManager.GetImmunity("STEAM_UNKNOWN")).toBe(0);
 
-    // 1. Group configuration and assignment
-    adminManager.AddAdminGroup("VIP", "a", 50);
-    adminManager.AddAdminGroup("Admin", "bc", 85, "VIP"); // Inherits VIP
-    
-    // Assign "STEAM_ADMIN_USER" to "Admin" group
-    (adminManager as any).adminGroups.set("STEAM_ADMIN_USER", ["Admin"]);
+		// canTarget checks
+		expect(adminManager.CanTarget("STEAM_ROOT", "STEAM_VIP")).toBe(true);
+		expect(adminManager.CanTarget("STEAM_ROOT", "STEAM_PLAYER")).toBe(true);
+		expect(adminManager.CanTarget("STEAM_VIP", "STEAM_PLAYER")).toBe(true);
 
-    // Flags check (should inherit "a" from "VIP" and have "b", "c" from "Admin")
-    expect(adminManager.HasPermission("STEAM_ADMIN_USER", "b")).toBe(true);
-    expect(adminManager.HasPermission("STEAM_ADMIN_USER", "c")).toBe(true);
-    expect(adminManager.HasPermission("STEAM_ADMIN_USER", "a")).toBe(true); // Inherited flag
-    expect(adminManager.HasPermission("STEAM_ADMIN_USER", "d")).toBe(false);
-    expect(adminManager.GetImmunity("STEAM_ADMIN_USER")).toBe(85); // Inherited immunity
+		// Lower immunity cannot target higher immunity
+		expect(adminManager.CanTarget("STEAM_VIP", "STEAM_ROOT")).toBe(false);
+		expect(adminManager.CanTarget("STEAM_PLAYER", "STEAM_VIP")).toBe(false);
+		expect(adminManager.CanTarget("STEAM_UNKNOWN", "STEAM_VIP")).toBe(false);
+	});
 
-    // 2. Command override check
-    expect(adminManager.GetCommandOverride("sm_slap")).toBeUndefined();
-    (adminManager as any).commandOverrides.set("sm_slap", "o");
-    expect(adminManager.GetCommandOverride("sm_slap")).toBe("o");
+	it("Admin grupları, grup kalıtımı, komut yetki ezme ve çalışma zamanı API'lerini desteklemelidir", () => {
+		const adminManager = new AdminManager();
 
-    // 3. Runtime API
-    adminManager.CreateAdmin("STEAM_TEMP_ADMIN", "ad", 30);
-    expect(adminManager.HasPermission("STEAM_TEMP_ADMIN", "a")).toBe(true);
-    expect(adminManager.HasPermission("STEAM_TEMP_ADMIN", "d")).toBe(true);
-    expect(adminManager.GetImmunity("STEAM_TEMP_ADMIN")).toBe(30);
+		// 1. Group configuration and assignment
+		adminManager.AddAdminGroup("VIP", "a", 50);
+		adminManager.AddAdminGroup("Admin", "bc", 85, "VIP"); // Inherits VIP
 
-    adminManager.RemoveAdmin("STEAM_TEMP_ADMIN");
-    expect(adminManager.GetFlags("STEAM_TEMP_ADMIN")).toBe("");
-  });
+		// Assign "STEAM_ADMIN_USER" to "Admin" group
+		(adminManager as any).adminGroups.set("STEAM_ADMIN_USER", ["Admin"]);
 
-  it("Geçici (süreli) admin yetkilerini ve süre aşımı (expiration) kontrollerini yapmalıdır", async () => {
-    const dbPath = "./test_meta_bun.db";
-    const db = new DatabaseManager(dbPath);
-    const adminManager = new AdminManager(db);
+		// Flags check (should inherit "a" from "VIP" and have "b", "c" from "Admin")
+		expect(adminManager.HasPermission("STEAM_ADMIN_USER", "b")).toBe(true);
+		expect(adminManager.HasPermission("STEAM_ADMIN_USER", "c")).toBe(true);
+		expect(adminManager.HasPermission("STEAM_ADMIN_USER", "a")).toBe(true); // Inherited flag
+		expect(adminManager.HasPermission("STEAM_ADMIN_USER", "d")).toBe(false);
+		expect(adminManager.GetImmunity("STEAM_ADMIN_USER")).toBe(85); // Inherited immunity
 
-    const now = Math.floor(Date.now() / 1000);
-    const expTime = now + 1; // Expires in 1 second
+		// 2. Command override check
+		expect(adminManager.GetCommandOverride("sm_slap")).toBeUndefined();
+		(adminManager as any).commandOverrides.set("sm_slap", "o");
+		expect(adminManager.GetCommandOverride("sm_slap")).toBe("o");
 
-    // Create a temporary admin
-    adminManager.CreateAdmin("STEAM_EXPIRE_ME", "abc", 40, expTime);
-    expect(adminManager.HasPermission("STEAM_EXPIRE_ME", "a")).toBe(true);
-    expect(adminManager.GetImmunity("STEAM_EXPIRE_ME")).toBe(40);
+		// 3. Runtime API
+		adminManager.CreateAdmin("STEAM_TEMP_ADMIN", "ad", 30);
+		expect(adminManager.HasPermission("STEAM_TEMP_ADMIN", "a")).toBe(true);
+		expect(adminManager.HasPermission("STEAM_TEMP_ADMIN", "d")).toBe(true);
+		expect(adminManager.GetImmunity("STEAM_TEMP_ADMIN")).toBe(30);
 
-    // Wait for it to expire
-    await new Promise(resolve => setTimeout(resolve, 1500));
+		adminManager.RemoveAdmin("STEAM_TEMP_ADMIN");
+		expect(adminManager.GetFlags("STEAM_TEMP_ADMIN")).toBe("");
+	});
 
-    // Now it should be expired and ignored (and cleaned up from memory and DB)
-    expect(adminManager.HasPermission("STEAM_EXPIRE_ME", "a")).toBe(false);
-    expect(adminManager.GetFlags("STEAM_EXPIRE_ME")).toBe("");
-    expect(adminManager.GetImmunity("STEAM_EXPIRE_ME")).toBe(0);
+	it("Geçici (süreli) admin yetkilerini ve süre aşımı (expiration) kontrollerini yapmalıdır", async () => {
+		const dbPath = "./test_meta_bun.db";
+		const db = new DatabaseManager(dbPath);
+		const adminManager = new AdminManager(db);
 
-    // Verify it is deleted from the SQLite DB as well
-    const dbAdmins = db.GetDatabaseAdmins();
-    expect(dbAdmins.some(a => a.steamid === "STEAM_EXPIRE_ME")).toBe(false);
+		const now = Math.floor(Date.now() / 1000);
+		const expTime = now + 1; // Expires in 1 second
 
-    db.close();
-  });
+		// Create a temporary admin
+		adminManager.CreateAdmin("STEAM_EXPIRE_ME", "abc", 40, expTime);
+		expect(adminManager.HasPermission("STEAM_EXPIRE_ME", "a")).toBe(true);
+		expect(adminManager.GetImmunity("STEAM_EXPIRE_ME")).toBe(40);
 
-  it("Çalışma zamanında dinamik komut yetki ezme (AddCommandOverride / RemoveCommandOverride) işlemlerini yapmalıdır", () => {
-    const adminManager = new AdminManager();
+		// Wait for it to expire
+		await new Promise((resolve) => setTimeout(resolve, 1500));
 
-    // Set an override
-    adminManager.AddCommandOverride("sm_slap", "o");
-    expect(adminManager.GetCommandOverride("sm_slap")).toBe("o");
+		// Now it should be expired and ignored (and cleaned up from memory and DB)
+		expect(adminManager.HasPermission("STEAM_EXPIRE_ME", "a")).toBe(false);
+		expect(adminManager.GetFlags("STEAM_EXPIRE_ME")).toBe("");
+		expect(adminManager.GetImmunity("STEAM_EXPIRE_ME")).toBe(0);
 
-    // Remove the override
-    adminManager.RemoveCommandOverride("sm_slap");
-    expect(adminManager.GetCommandOverride("sm_slap")).toBeUndefined();
-  });
+		// Verify it is deleted from the SQLite DB as well
+		const dbAdmins = db.GetDatabaseAdmins();
+		expect(dbAdmins.some((a) => a.steamid === "STEAM_EXPIRE_ME")).toBe(false);
+
+		db.close();
+	});
+
+	it("Çalışma zamanında dinamik komut yetki ezme (AddCommandOverride / RemoveCommandOverride) işlemlerini yapmalıdır", () => {
+		const adminManager = new AdminManager();
+
+		// Set an override
+		adminManager.AddCommandOverride("sm_slap", "o");
+		expect(adminManager.GetCommandOverride("sm_slap")).toBe("o");
+
+		// Remove the override
+		adminManager.RemoveCommandOverride("sm_slap");
+		expect(adminManager.GetCommandOverride("sm_slap")).toBeUndefined();
+	});
 });

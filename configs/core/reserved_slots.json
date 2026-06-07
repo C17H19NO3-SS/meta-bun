@@ -1,5 +1,5 @@
 {
-  "reserved_slots_count": 2,
-  "kick_method": "highest_ping",
-  "min_immunity": 10
+	"reserved_slots_count": 2,
+	"kick_method": "highest_ping",
+	"min_immunity": 10
 }

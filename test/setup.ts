@@ -1,15 +1,18 @@
-import { beforeAll, afterAll } from "bun:test";
-import { startIntegrationServer, stopIntegrationServer } from "./helpers/integration-setup";
-import fs from "fs";
+import { afterAll, beforeAll } from "bun:test";
+import fs from "node:fs";
+import {
+	startIntegrationServer,
+	stopIntegrationServer,
+} from "./helpers/integration-setup";
 
 const dbPath = "./test_meta_bun.db";
 
 beforeAll(async () => {
-  if (fs.existsSync(dbPath)) fs.unlinkSync(dbPath);
-  await startIntegrationServer();
+	if (fs.existsSync(dbPath)) fs.unlinkSync(dbPath);
+	await startIntegrationServer();
 });
 
 afterAll(async () => {
-  stopIntegrationServer();
-  if (fs.existsSync(dbPath)) fs.unlinkSync(dbPath);
+	stopIntegrationServer();
+	if (fs.existsSync(dbPath)) fs.unlinkSync(dbPath);
 });

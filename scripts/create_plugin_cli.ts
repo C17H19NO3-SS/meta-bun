@@ -1,68 +1,80 @@
 #!/usr/bin/env bun
-import { mkdirSync, writeFileSync, existsSync } from "node:fs";
-import { join, basename } from "node:path";
 import { spawnSync } from "node:child_process";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { basename, join } from "node:path";
 
 const inputName = process.argv[2] || "my-metabun-plugin";
 const isCurrentDir = inputName === ".";
 const projectName = isCurrentDir ? basename(process.cwd()) : inputName;
-const projectPath = isCurrentDir ? process.cwd() : join(process.cwd(), inputName);
+const projectPath = isCurrentDir
+	? process.cwd()
+	: join(process.cwd(), inputName);
 
 console.log(`\n\x1b[35m🚀 Creating MetaBun Plugin: ${projectName}...\x1b[0m`);
 
 // Check if project directory already exists (only if not initializing in current dir)
 if (!isCurrentDir && existsSync(projectPath)) {
-  console.error(`\x1b[31mError: Directory ${projectName} already exists.\x1b[0m`);
-  process.exit(1);
+	console.error(
+		`\x1b[31mError: Directory ${projectName} already exists.\x1b[0m`,
+	);
+	process.exit(1);
 }
 
 // Safety check for current directory initialization
 if (isCurrentDir && existsSync(join(projectPath, "package.json"))) {
-  console.error(`\x1b[31mError: A package.json already exists in this directory.\x1b[0m`);
-  process.exit(1);
+	console.error(
+		`\x1b[31mError: A package.json already exists in this directory.\x1b[0m`,
+	);
+	process.exit(1);
 }
 
 // 1. Create directory structure
 if (!isCurrentDir) {
-  mkdirSync(projectPath, { recursive: true });
+	mkdirSync(projectPath, { recursive: true });
 }
 mkdirSync(join(projectPath, "src"), { recursive: true });
 
 // 2. Create package.json
 const pkg = {
-  name: projectName,
-  version: "1.0.0",
-  type: "module",
-  scripts: {
-    "build": "bun build ./src/index.ts --outdir ./dist --target bun",
-    "dev": "bun build ./src/index.ts --outdir ./dist --target bun --watch"
-  },
-  dependencies: {
-    "@meta-bun/core": "latest"
-  }
+	name: projectName,
+	version: "1.0.0",
+	type: "module",
+	scripts: {
+		build: "bun build ./src/index.ts --outdir ./dist --target bun",
+		dev: "bun build ./src/index.ts --outdir ./dist --target bun --watch",
+	},
+	dependencies: {
+		"@meta-bun/core": "latest",
+	},
 };
 writeFileSync(join(projectPath, "package.json"), JSON.stringify(pkg, null, 2));
 
 // 3. Create tsconfig.json
 const tsconfig = {
-  compilerOptions: {
-    lib: ["ESNext"],
-    module: "ESNext",
-    target: "ESNext",
-    moduleResolution: "bundler",
-    moduleDetection: "force",
-    allowImportingTsExtensions: true,
-    strict: true,
-    skipLibCheck: true,
-    types: ["bun"]
-  }
+	compilerOptions: {
+		lib: ["ESNext"],
+		module: "ESNext",
+		target: "ESNext",
+		moduleResolution: "bundler",
+		moduleDetection: "force",
+		allowImportingTsExtensions: true,
+		strict: true,
+		skipLibCheck: true,
+		types: ["bun"],
+	},
 };
-writeFileSync(join(projectPath, "tsconfig.json"), JSON.stringify(tsconfig, null, 2));
+writeFileSync(
+	join(projectPath, "tsconfig.json"),
+	JSON.stringify(tsconfig, null, 2),
+);
 
 // 4. Create example plugin code
 const exampleCode = `import { BasePlugin, type IGameBridge } from "@meta-bun/core";
 
-export default class ${projectName.split(/[-_]/).map(s => s.charAt(0).toUpperCase() + s.slice(1)).join("")} extends BasePlugin {
+export default class ${projectName
+	.split(/[-_]/)
+	.map((s) => s.charAt(0).toUpperCase() + s.slice(1))
+	.join("")} extends BasePlugin {
   public override name = "${projectName}";
   public override version = "1.0.0";
   public override author = "Developer";
@@ -88,12 +100,18 @@ writeFileSync(join(projectPath, "src", "index.ts"), exampleCode);
 writeFileSync(join(projectPath, ".gitignore"), "node_modules/\ndist/\n.bun/\n");
 
 // 6. Install dependencies
-console.log("\x1b[33m📦 Installing dependencies (this may take a moment)...\x1b[0m");
+console.log(
+	"\x1b[33m📦 Installing dependencies (this may take a moment)...\x1b[0m",
+);
 spawnSync("bun", ["install"], { cwd: projectPath, stdio: "inherit" });
 
 console.log("\n\x1b[32m✅ Successfully created MetaBun Plugin Project!\x1b[0m");
 if (!isCurrentDir) {
-  console.log(`\nNext steps:\n  1. cd ${projectName}\n  2. Write your code in src/index.ts\n  3. Run 'bun run build' to package your plugin\x1b[0m`);
+	console.log(
+		`\nNext steps:\n  1. cd ${projectName}\n  2. Write your code in src/index.ts\n  3. Run 'bun run build' to package your plugin\x1b[0m`,
+	);
 } else {
-  console.log(`\nNext steps:\n  1. Write your code in src/index.ts\n  2. Run 'bun run build' to package your plugin\x1b[0m`);
+	console.log(
+		`\nNext steps:\n  1. Write your code in src/index.ts\n  2. Run 'bun run build' to package your plugin\x1b[0m`,
+	);
 }

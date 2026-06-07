@@ -1,18 +1,18 @@
 {
-  "driver": "sqlite",
-  "sqlite_path": "meta-bun.db",
-  "mysql": {
-    "host": "127.0.0.1",
-    "port": 3306,
-    "user": "root",
-    "password": "password",
-    "database": "meta_bun"
-  },
-  "postgres": {
-    "host": "127.0.0.1",
-    "port": 5432,
-    "user": "postgres",
-    "password": "password",
-    "database": "meta_bun"
-  }
+	"driver": "sqlite",
+	"sqlite_path": "meta-bun.db",
+	"mysql": {
+		"host": "127.0.0.1",
+		"port": 3306,
+		"user": "root",
+		"password": "password",
+		"database": "meta_bun"
+	},
+	"postgres": {
+		"host": "127.0.0.1",
+		"port": 5432,
+		"user": "postgres",
+		"password": "password",
+		"database": "meta_bun"
+	}
 }

@@ -1,270 +1,305 @@
-import type { IPlayer, IPlayerManager } from "../shared/types/player";
-import { Team } from "../shared/types/enums";
-import { DatabaseManager } from "../shared/database";
-import { Player } from "./player";
-import { BanManager } from "../admins/bans";
-import type { Bridge } from "../network/bridge";
-import type { IAdminManager } from "../shared/types/admin";
-import { readFileSync, existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import type { BanManager } from "../admins/bans";
+import type { Bridge } from "../network/bridge";
+import { DatabaseManager } from "../shared/database";
+import type { IAdminManager } from "../shared/types/admin";
+import { Team } from "../shared/types/enums";
+import type { IPlayer, IPlayerManager } from "../shared/types/player";
+import { Player } from "./player";
 
 /**
  * Manages player sessions, persistence saves, reservations, and AFK checks.
  */
 export class PlayerManager implements IPlayerManager {
-  private players = new Map<number, IPlayer>();
-  public readonly db: DatabaseManager;
-  private reservedSlotsConfig = {
-    reserved_slots_count: 0,
-    kick_method: "highest_idle",
-    min_immunity: 10
-  };
+	private players = new Map<number, IPlayer>();
+	public readonly db: DatabaseManager;
+	private reservedSlotsConfig = {
+		reserved_slots_count: 0,
+		kick_method: "highest_idle",
+		min_immunity: 10,
+	};
 
-  private consolePlayer: IPlayer | null = null;
+	private consolePlayer: IPlayer | null = null;
 
-  /**
-   * Initializes the PlayerManager.
-   * 
-   * @param db The DatabaseManager instance.
-   * @param enableCheckpointing Whether stats auto-save checkpoints are run periodically.
-   */
-  constructor(db?: DatabaseManager, enableCheckpointing: boolean = false) {
-    this.db = db || new DatabaseManager();
-    this.LoadReservedSlotsConfig();
-    if (enableCheckpointing) {
-      setInterval(() => this.Checkpoint(), 5 * 60 * 1000); // 5 minutes
-    }
-  }
+	/**
+	 * Initializes the PlayerManager.
+	 *
+	 * @param db The DatabaseManager instance.
+	 * @param enableCheckpointing Whether stats auto-save checkpoints are run periodically.
+	 */
+	constructor(db?: DatabaseManager, enableCheckpointing: boolean = false) {
+		this.db = db || new DatabaseManager();
+		this.LoadReservedSlotsConfig();
+		if (enableCheckpointing) {
+			setInterval(() => this.Checkpoint(), 5 * 60 * 1000); // 5 minutes
+		}
+	}
 
-  private LoadReservedSlotsConfig(): void {
-    try {
-      const configPath = join(process.cwd(), "configs", "reserved_slots.json");
-      if (existsSync(configPath)) {
-        const content = readFileSync(configPath, "utf-8");
-        this.reservedSlotsConfig = JSON.parse(content);
-      }
-    } catch (e) {
-      console.error("[PlayerManager] Error loading reserved_slots.json:", e);
-    }
-  }
+	private LoadReservedSlotsConfig(): void {
+		try {
+			const configPath = join(process.cwd(), "configs", "reserved_slots.json");
+			if (existsSync(configPath)) {
+				const content = readFileSync(configPath, "utf-8");
+				this.reservedSlotsConfig = JSON.parse(content);
+			}
+		} catch (e) {
+			console.error("[PlayerManager] Error loading reserved_slots.json:", e);
+		}
+	}
 
-  /**
-   * Periodically saves stats for all connected players to prevent data loss.
-   */
-  public Checkpoint(): void {
-    for (const player of this.players.values()) {
-      this.db.UpsertPlayer({
-        steamid: player.steamId,
-        last_name: player.name,
-        total_kills: player.GetTotalKills(),
-        total_deaths: player.GetTotalDeaths(),
-        total_assists: player.GetTotalAssists(),
-        total_headshots: player.GetHeadshots(),
-        total_damage: player.GetDamage(),
-        total_mvps: player.GetMVPs(),
-        total_playtime: player.GetPlaytime(),
-        is_muted: player.IsMuted() ? 1 : 0,
-        is_gagged: player.IsGagged() ? 1 : 0
-      });
-    }
-  }
+	/**
+	 * Periodically saves stats for all connected players to prevent data loss.
+	 */
+	public Checkpoint(): void {
+		for (const player of this.players.values()) {
+			this.db.UpsertPlayer({
+				steamid: player.steamId,
+				last_name: player.name,
+				total_kills: player.GetTotalKills(),
+				total_deaths: player.GetTotalDeaths(),
+				total_assists: player.GetTotalAssists(),
+				total_headshots: player.GetHeadshots(),
+				total_damage: player.GetDamage(),
+				total_mvps: player.GetMVPs(),
+				total_playtime: player.GetPlaytime(),
+				is_muted: player.IsMuted() ? 1 : 0,
+				is_gagged: player.IsGagged() ? 1 : 0,
+			});
+		}
+	}
 
-  /**
-   * Adds a player session and restores persistent statistics from the database.
-   * If a player already occupies the same slot index, that session is saved and
-   * removed first to prevent data corruption.
-   *
-   * @param player The player instance.
-   */
-  public AddPlayer(player: IPlayer): void {
-    // Guard: if this slot is already occupied (e.g. rapid reconnect), clean up first
-    const existing = this.players.get(player.index);
-    if (existing) {
-      console.warn(`[PlayerManager] Slot ${player.index} already occupied by ${existing.name}. Removing before adding ${player.name}.`);
-      this.RemovePlayer(player.index);
-    }
+	/**
+	 * Adds a player session and restores persistent statistics from the database.
+	 * If a player already occupies the same slot index, that session is saved and
+	 * removed first to prevent data corruption.
+	 *
+	 * @param player The player instance.
+	 */
+	public AddPlayer(player: IPlayer): void {
+		// Guard: if this slot is already occupied (e.g. rapid reconnect), clean up first
+		const existing = this.players.get(player.index);
+		if (existing) {
+			console.warn(
+				`[PlayerManager] Slot ${player.index} already occupied by ${existing.name}. Removing before adding ${player.name}.`,
+			);
+			this.RemovePlayer(player.index);
+		}
 
-    // Load persistent data from DB
-    const data = this.db.GetPlayer(player.steamId);
-    if (data && player instanceof Player) {
-      const hasNoStats = player.GetTotalKills() === 0 && player.GetTotalDeaths() === 0 && player.GetTotalAssists() === 0;
-      if (hasNoStats) {
-        player.SetTotalStats(data.total_kills, data.total_deaths, data.total_assists);
-        player.SetAdvancedStats(
-          data.total_headshots ?? 0,
-          data.total_damage ?? 0,
-          data.total_mvps ?? 0,
-          data.total_playtime ?? 0
-        );
-      }
-      if (data.is_muted === 1) {
-        player.Mute();
-      }
-      if (data.is_gagged === 1) {
-        player.Gag();
-      }
-    }
-    this.players.set(player.index, player);
-  }
+		// Load persistent data from DB
+		const data = this.db.GetPlayer(player.steamId);
+		if (data && player instanceof Player) {
+			const hasNoStats =
+				player.GetTotalKills() === 0 &&
+				player.GetTotalDeaths() === 0 &&
+				player.GetTotalAssists() === 0;
+			if (hasNoStats) {
+				player.SetTotalStats(
+					data.total_kills,
+					data.total_deaths,
+					data.total_assists,
+				);
+				player.SetAdvancedStats(
+					data.total_headshots ?? 0,
+					data.total_damage ?? 0,
+					data.total_mvps ?? 0,
+					data.total_playtime ?? 0,
+				);
+			}
+			if (data.is_muted === 1) {
+				player.Mute();
+			}
+			if (data.is_gagged === 1) {
+				player.Gag();
+			}
+		}
+		this.players.set(player.index, player);
+	}
 
-  /**
-   * Saves stats and removes a player session upon disconnect.
-   * 
-   * @param index Player index.
-   */
-  public RemovePlayer(index: number): void {
-    const player = this.players.get(index);
-    if (player) {
-      // Save data to DB
-      this.db.UpsertPlayer({
-        steamid: player.steamId,
-        last_name: player.name,
-        total_kills: player.GetTotalKills(),
-        total_deaths: player.GetTotalDeaths(),
-        total_assists: player.GetTotalAssists(),
-        total_headshots: player.GetHeadshots(),
-        total_damage: player.GetDamage(),
-        total_mvps: player.GetMVPs(),
-        total_playtime: player.GetPlaytime(),
-        is_muted: player.IsMuted() ? 1 : 0,
-        is_gagged: player.IsGagged() ? 1 : 0
-      });
-      this.players.delete(index);
-    }
-  }
+	/**
+	 * Saves stats and removes a player session upon disconnect.
+	 *
+	 * @param index Player index.
+	 */
+	public RemovePlayer(index: number): void {
+		const player = this.players.get(index);
+		if (player) {
+			// Save data to DB
+			this.db.UpsertPlayer({
+				steamid: player.steamId,
+				last_name: player.name,
+				total_kills: player.GetTotalKills(),
+				total_deaths: player.GetTotalDeaths(),
+				total_assists: player.GetTotalAssists(),
+				total_headshots: player.GetHeadshots(),
+				total_damage: player.GetDamage(),
+				total_mvps: player.GetMVPs(),
+				total_playtime: player.GetPlaytime(),
+				is_muted: player.IsMuted() ? 1 : 0,
+				is_gagged: player.IsGagged() ? 1 : 0,
+			});
+			this.players.delete(index);
+		}
+	}
 
-  /**
-   * Scans and kicks or moves AFK players to spectators if they exceed idle time.
-   *
-   * @param maxIdleSeconds Maximum idle duration allowed.
-   * @param action "spec" to move to spectator, "kick" to remove from server.
-   */
-  public CheckAFKPlayers(maxIdleSeconds: number, action: "spec" | "kick" = "spec"): void {
-    for (const player of this.players.values()) {
-      if (player.GetTeam() !== Team.Spectator) {
-        const idle = player.GetIdleTime();
-        if (idle >= maxIdleSeconds) {
-          if (action === "spec") {
-            player.SetTeam(Team.Spectator);
-            player.Say("You have been moved to spectator for being AFK.");
-          } else if (action === "kick") {
-            player.Kick("Kicked for being AFK.");
-          }
-        }
-      }
-    }
-  }
+	/**
+	 * Scans and kicks or moves AFK players to spectators if they exceed idle time.
+	 *
+	 * @param maxIdleSeconds Maximum idle duration allowed.
+	 * @param action "spec" to move to spectator, "kick" to remove from server.
+	 */
+	public CheckAFKPlayers(
+		maxIdleSeconds: number,
+		action: "spec" | "kick" = "spec",
+	): void {
+		for (const player of this.players.values()) {
+			if (player.GetTeam() !== Team.Spectator) {
+				const idle = player.GetIdleTime();
+				if (idle >= maxIdleSeconds) {
+					if (action === "spec") {
+						player.SetTeam(Team.Spectator);
+						player.Say("You have been moved to spectator for being AFK.");
+					} else if (action === "kick") {
+						player.Kick("Kicked for being AFK.");
+					}
+				}
+			}
+		}
+	}
 
-  /**
-   * Manages reservation checks. Determines if normal players should be kicked to make room for a VIP.
-   * 
-   * @param connectingSteamId SteamID of connecting player.
-   * @param connectingFlags Permission flags of connecting player.
-   * @param maxClients Maximum player slots.
-   */
-  public CheckReservation(connectingSteamId: string, connectingFlags: string, maxClients: number = 32): { allowed: boolean; kickIndex?: number } {
-    const currentClients = this.players.size;
-    const slotsLimit = maxClients - this.reservedSlotsConfig.reserved_slots_count;
-    const isVip = connectingFlags.includes("a") || connectingFlags.includes("z");
+	/**
+	 * Manages reservation checks. Determines if normal players should be kicked to make room for a VIP.
+	 *
+	 * @param connectingSteamId SteamID of connecting player.
+	 * @param connectingFlags Permission flags of connecting player.
+	 * @param maxClients Maximum player slots.
+	 */
+	public CheckReservation(
+		_connectingSteamId: string,
+		connectingFlags: string,
+		maxClients: number = 32,
+	): { allowed: boolean; kickIndex?: number } {
+		const currentClients = this.players.size;
+		const slotsLimit =
+			maxClients - this.reservedSlotsConfig.reserved_slots_count;
+		const isVip =
+			connectingFlags.includes("a") || connectingFlags.includes("z");
 
-    if (currentClients < slotsLimit) {
-      return { allowed: true };
-    }
+		if (currentClients < slotsLimit) {
+			return { allowed: true };
+		}
 
-    if (currentClients < maxClients && isVip) {
-      return { allowed: true };
-    }
+		if (currentClients < maxClients && isVip) {
+			return { allowed: true };
+		}
 
-    if (!isVip) {
-      return { allowed: false };
-    }
+		if (!isVip) {
+			return { allowed: false };
+		}
 
-    let bestCandidate: IPlayer | null = null;
+		let bestCandidate: IPlayer | null = null;
 
-    if (this.reservedSlotsConfig.kick_method === "highest_ping") {
-      let maxPing = -1;
-      for (const player of this.players.values()) {
-        const playerFlags = player.GetAdminFlags();
-        const isPlayerVip = playerFlags.includes("a") || playerFlags.includes("z");
-        if (isPlayerVip) continue;
+		if (this.reservedSlotsConfig.kick_method === "highest_ping") {
+			let maxPing = -1;
+			for (const player of this.players.values()) {
+				const playerFlags = player.GetAdminFlags();
+				const isPlayerVip =
+					playerFlags.includes("a") || playerFlags.includes("z");
+				if (isPlayerVip) continue;
 
-        const ping = player.GetPing();
-        if (ping > maxPing) {
-          maxPing = ping;
-          bestCandidate = player;
-        }
-      }
-    } else {
-      let maxIdleTime = -1;
-      for (const player of this.players.values()) {
-        const playerFlags = player.GetAdminFlags();
-        const isPlayerVip = playerFlags.includes("a") || playerFlags.includes("z");
-        if (isPlayerVip) continue;
+				const ping = player.GetPing();
+				if (ping > maxPing) {
+					maxPing = ping;
+					bestCandidate = player;
+				}
+			}
+		} else {
+			let maxIdleTime = -1;
+			for (const player of this.players.values()) {
+				const playerFlags = player.GetAdminFlags();
+				const isPlayerVip =
+					playerFlags.includes("a") || playerFlags.includes("z");
+				if (isPlayerVip) continue;
 
-        const idleTime = player.GetIdleTime();
-        if (idleTime > maxIdleTime) {
-          maxIdleTime = idleTime;
-          bestCandidate = player;
-        }
-      }
-    }
+				const idleTime = player.GetIdleTime();
+				if (idleTime > maxIdleTime) {
+					maxIdleTime = idleTime;
+					bestCandidate = player;
+				}
+			}
+		}
 
-    if (bestCandidate) {
-      return { allowed: true, kickIndex: bestCandidate.index };
-    }
+		if (bestCandidate) {
+			return { allowed: true, kickIndex: bestCandidate.index };
+		}
 
-    return { allowed: false };
-  }
+		return { allowed: false };
+	}
 
-  public Get(index: number): IPlayer | undefined {
-    if (index === 0) return this.consolePlayer || undefined;
-    return this.players.get(index);
-  }
+	public Get(index: number): IPlayer | undefined {
+		if (index === 0) return this.consolePlayer || undefined;
+		return this.players.get(index);
+	}
 
-  public InitializeConsole(bridge: Bridge, adminManager: IAdminManager, banManager: BanManager): void {
-    const consolePlayer = new Player(bridge, adminManager, banManager, 0, "Console", "STEAM_ID_SERVER", 0, false);
-    this.consolePlayer = consolePlayer;
-  }
+	public InitializeConsole(
+		bridge: Bridge,
+		adminManager: IAdminManager,
+		banManager: BanManager,
+	): void {
+		const consolePlayer = new Player(
+			bridge,
+			adminManager,
+			banManager,
+			0,
+			"Console",
+			"STEAM_ID_SERVER",
+			0,
+			false,
+		);
+		this.consolePlayer = consolePlayer;
+	}
 
-  /**
-   * Finds player by nickname.
-   */
-  public FindByName(name: string): IPlayer | undefined {
-    return Array.from(this.players.values()).find(p => p.name === name);
-  }
+	/**
+	 * Finds player by nickname.
+	 */
+	public FindByName(name: string): IPlayer | undefined {
+		return Array.from(this.players.values()).find((p) => p.name === name);
+	}
 
-  /**
-   * Finds player by SteamID.
-   */
-  public FindBySteamId(steamId: string): IPlayer | undefined {
-    return Array.from(this.players.values()).find(p => p.steamId === steamId);
-  }
+	/**
+	 * Finds player by SteamID.
+	 */
+	public FindBySteamId(steamId: string): IPlayer | undefined {
+		return Array.from(this.players.values()).find((p) => p.steamId === steamId);
+	}
 
-  /**
-   * Returns all connected player sessions.
-   */
-  public GetAll(): IPlayer[] {
-    return Array.from(this.players.values());
-  }
+	/**
+	 * Returns all connected player sessions.
+	 */
+	public GetAll(): IPlayer[] {
+		return Array.from(this.players.values());
+	}
 
-  /**
-   * Gets all players on a team.
-   */
-  public GetClientsByTeam(team: Team): IPlayer[] {
-    return Array.from(this.players.values()).filter(p => p.GetTeam() === team);
-  }
+	/**
+	 * Gets all players on a team.
+	 */
+	public GetClientsByTeam(team: Team): IPlayer[] {
+		return Array.from(this.players.values()).filter(
+			(p) => p.GetTeam() === team,
+		);
+	}
 
-  /**
-   * Gets all alive players.
-   */
-  public GetAliveClients(): IPlayer[] {
-    return Array.from(this.players.values()).filter(p => p.IsAlive());
-  }
+	/**
+	 * Gets all alive players.
+	 */
+	public GetAliveClients(): IPlayer[] {
+		return Array.from(this.players.values()).filter((p) => p.IsAlive());
+	}
 
-  /**
-   * Gets all fully connected players in-game.
-   */
-  public GetInGameClients(): IPlayer[] {
-    return Array.from(this.players.values());
-  }
+	/**
+	 * Gets all fully connected players in-game.
+	 */
+	public GetInGameClients(): IPlayer[] {
+		return Array.from(this.players.values());
+	}
 }

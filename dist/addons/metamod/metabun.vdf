@@ -1,5 +1,0 @@
-"Metamod Plugin"
-{
-	"alias"	"metabun"
-	"file"	"addons/meta-bun/bin/libmetabun_plugin"
-}
