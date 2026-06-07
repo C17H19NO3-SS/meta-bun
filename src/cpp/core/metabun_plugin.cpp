@@ -1,4 +1,5 @@
 #include "metabun_plugin.h"
+#include "schema_manager.h"
 #include "../utils/json_helper.h"
 #include "../utils/color_utils.h"
 #include <iostream>
@@ -18,6 +19,7 @@ ISmmAPI *g_SMAPI = nullptr;
 
 #ifdef COMPILE_WITH_SOURCE_SDK
 #include "toolframework/itoolentity.h"
+#include "schemasystem/schemasystem.h"
 ICvar *g_pCVar = nullptr;
 ISmmPlugin *g_PLAPI = nullptr;
 PluginId g_PLID = 0;
@@ -77,9 +79,12 @@ bool MetaBunPlugin::Load(PluginId id, ISmmAPI *ismm, char *error, size_t maxlen,
 #ifdef COMPILE_WITH_SOURCE_SDK
     GET_V_IFACE_CURRENT(GetEngineFactory, m_pEngineServer, IVEngineServer, INTERFACEVERSION_VENGINESERVER);
     GET_V_IFACE_ANY(GetServerFactory, m_pServerTools, IServerTools, VSERVERTOOLS_INTERFACE_VERSION);
+    GET_V_IFACE_ANY(GetEngineFactory, g_pSchemaSystem, ISchemaSystem, SCHEMASYSTEM_INTERFACE_VERSION);
     // PlayerInfoManager is not supported or exposed by the CS2 game server and is unused in our codebase.
     // GET_V_IFACE_CURRENT(GetServerFactory, m_pPlayerInfoManager, IPlayerInfoManager, INTERFACEVERSION_PLAYERINFOMANAGER);
     GET_V_IFACE_CURRENT(GetEngineFactory, g_pCVar, ICvar, CVAR_INTERFACE_VERSION);
+
+    g_SchemaManager.Initialize();
 
     // Register commands/convars with both Metamod and the engine
     META_CONVAR_REGISTER(0);

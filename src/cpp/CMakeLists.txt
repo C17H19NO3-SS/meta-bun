@@ -97,6 +97,7 @@ endif()
 set(HEADERS
     # Core
     core/metabun_plugin.h
+    core/schema_manager.h
     core/sdk_mock.h
 
     # Network
