@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 import { mkdirSync, writeFileSync, existsSync } from "node:fs";
-import { join } from "node:path";
+import { join, basename } from "node:path";
 import { spawnSync } from "node:child_process";
 
 const projectName = process.argv[2] || "my-metabun-plugin";
@@ -81,6 +81,11 @@ console.log("\x1b[33m📦 Installing dependencies (this may take a moment)...\x1
 spawnSync("bun", ["install"], { cwd: projectPath, stdio: "inherit" });
 
 console.log("\n\x1b[32m✅ Successfully created MetaBun Plugin Project!\x1b[0m");
+console.log(`\nNext steps:
+  1. cd ${projectName}
+  2. Write your code in src/index.ts
+  3. Run 'bun run build' to package your plugin
+\x1b[0m`);
 console.log(`\nNext steps:
   1. cd ${projectName}
   2. Write your code in src/index.ts
