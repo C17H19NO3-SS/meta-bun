@@ -35,6 +35,35 @@ bun run build
 
 ---
 
+## 🗺️ Roadmap & Features
+
+**Core Engine & Bridge**
+- [x] C++ Metamod to TypeScript Bridge (NDJSON)
+- [x] Bun Runtime Integration
+- [ ] Switch to MsgPack (Binary Protocol) for extreme high-tickrate performance
+- [ ] Plugin Isolation (Bun.Worker threads) to prevent blocking the main loop
+
+**Plugin System & APIs**
+- [x] Hot-Reloading for plugins
+- [x] Strict TypeScript Definitions for Game Events
+- [x] Command Registration (Console & Chat)
+- [x] Interactive Menus & Callbacks
+- [x] Database System (SQLite, MySQL, PostgreSQL)
+- [x] Translation / Multilingual System
+- [x] Discord Webhook Integration
+- [x] Admin & VIP Permissions System (Groups, Flags)
+- [x] GeoIP API support
+- [ ] Direct Source 2 Entity Property mapping to TypeScript getters/setters
+- [ ] Advanced SDK Hooks (e.g., pre/post weapon fire interception)
+
+**Developer Experience (DX) & Community**
+- [x] CLI Tool for generating new plugins (`create-metabun-plugin`)
+- [x] Automated Update, Release & Install Scripts
+- [x] Open Source Community Standards (CI/CD, Biome Linter, Code of Conduct)
+- [ ] Dedicated Documentation Site (VitePress/Docusaurus)
+
+---
+
 ## 🤝 Contributing & Community
 
 MetaBun is an open-source project and we welcome community contributions! 
