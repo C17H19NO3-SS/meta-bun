@@ -75,7 +75,8 @@ export interface IGameBridge {
   PrintHintText(client: number, message: string): void;
 
   /** Register a callback for an engine event. */
-  HookEvent(event: string, callback: (data: GameEvent) => void): void;
+  HookEvent<K extends keyof EventMap>(event: K, callback: (data: EventMap[K]) => void): void;
+  HookEvent(event: string, callback: (data: any) => void): void;
 
   /** Registers a new console command. */
   RegConsoleCmd(command: string, callback: CommandCallback, flags?: string | null, description?: string | null): void;
@@ -204,7 +205,8 @@ export interface IGameBridge {
 
   // Interception
   /** Register a pre-hook callback for an engine event. Returning HANDLED blocks the event. */
-  HookEventPre(event: string, callback: (data: GameEvent) => number): void;
+  HookEventPre<K extends keyof EventMap>(event: K, callback: (data: EventMap[K]) => number): void;
+  HookEventPre(event: string, callback: (data: any) => number): void;
 
   // SDK Hooks
   /** Hooks a motor-level SDK callback (e.g. OnTakeDamage). */

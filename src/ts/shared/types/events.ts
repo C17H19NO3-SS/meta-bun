@@ -1,6 +1,33 @@
 import { Team } from "./enums";
 
 /**
+ * Central map of all game events and their corresponding data interfaces.
+ * This is used for strict type safety and IntelliSense.
+ */
+export interface EventMap {
+  PlayerChat: PlayerChatEvent;
+  PlayerConnect: PlayerConnectEvent;
+  PlayerDisconnect: PlayerDisconnectEvent;
+  PlayerStatsUpdate: PlayerStatsUpdateEvent;
+  PlayerSpawn: PlayerSpawnEvent;
+  PlayerDeath: PlayerDeathEvent;
+  WeaponFire: WeaponFireEvent;
+  BombPlanted: BombPlantedEvent;
+  BombDefused: BombDefusedEvent;
+  BombExploded: BombExplodedEvent;
+  HostageRescued: HostageRescuedEvent;
+  ItemPickup: ItemPickupEvent;
+  RoundStart: RoundStartEvent;
+  RoundEnd: RoundEndEvent;
+  MapStart: MapStartEvent;
+  MapEnd: MapEndEvent;
+  GameFrame: GameFrameEvent;
+  ping: PingEvent;
+  BridgeLatencyUpdate: BridgeLatencyUpdateEvent;
+  auth: AuthEvent;
+}
+
+/**
  * Base interface for all game events received from the C++ Metamod bridge.
  */
 export interface GameEvent {
