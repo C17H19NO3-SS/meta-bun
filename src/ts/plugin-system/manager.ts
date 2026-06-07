@@ -1126,38 +1126,45 @@ export class PluginManager extends EventEmitter implements IGameBridge {
     let entryPoint = fullPath;
     const stat = statSync(fullPath);
     if (stat.isDirectory()) {
-      const pkgPath = resolve(fullPath, "package.json");
       let found = false;
 
-      if (existsSync(pkgPath)) {
-        try {
-          const pkg = JSON.parse(readFileSync(pkgPath, "utf-8"));
-          if (pkg.main) {
-            const mainPath = resolve(fullPath, pkg.main);
-            if (existsSync(mainPath)) {
-              entryPoint = mainPath;
-              found = true;
+      // Priority 1: Check for index files in root or src/
+      const priorityEntries = [
+        "index.ts", "index.js",
+        "src/index.ts", "src/index.js",
+        "main.ts", "main.js"
+      ];
+
+      for (const entry of priorityEntries) {
+        const entryPath = resolve(fullPath, entry);
+        if (existsSync(entryPath)) {
+          entryPoint = entryPath;
+          found = true;
+          break;
+        }
+      }
+
+      // Priority 2: Check package.json main field if not found via priority entries
+      if (!found) {
+        const pkgPath = resolve(fullPath, "package.json");
+        if (existsSync(pkgPath)) {
+          try {
+            const pkg = JSON.parse(readFileSync(pkgPath, "utf-8"));
+            if (pkg.main) {
+              const mainPath = resolve(fullPath, pkg.main);
+              if (existsSync(mainPath)) {
+                entryPoint = mainPath;
+                found = true;
+              }
             }
-          }
-        } catch (e) {
-          console.error(`[Plugin Manager] Error parsing package.json for ${nameOrPath}:`, e);
-        }
-      }
-
-      if (!found) {
-        const possibleEntries = ["index.ts", "index.js", "main.ts", "main.js"];
-        for (const entry of possibleEntries) {
-          const entryPath = resolve(fullPath, entry);
-          if (existsSync(entryPath)) {
-            entryPoint = entryPath;
-            found = true;
-            break;
+          } catch (e) {
+            console.error(`[Plugin Manager] Error parsing package.json for ${nameOrPath}:`, e);
           }
         }
       }
 
       if (!found) {
-        console.error(`[Plugin Manager] Could not load folder plugin '${nameOrPath}': entry point (index/main) not found.`);
+        console.error(`[Plugin Manager] Could not load folder plugin '${nameOrPath}': entry point (index/src/main) not found.`);
         return;
       }
     }
