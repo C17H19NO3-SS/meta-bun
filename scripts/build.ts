@@ -2,6 +2,24 @@ import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 
+async function runCommandWithOutput(
+	command: string,
+	args: string[],
+	cwd: string = ".",
+): Promise<string> {
+	return new Promise((resolve, reject) => {
+		const proc = spawn(command, args, { stdio: "pipe", cwd });
+		let output = "";
+		proc.stdout.on("data", (data) => {
+			output += data.toString();
+		});
+		proc.on("close", (code) => {
+			if (code === 0) resolve(output);
+			else reject(new Error(`Command failed with code ${code}`));
+		});
+	});
+}
+
 async function runCommand(
 	command: string,
 	args: string[],
@@ -33,8 +51,53 @@ async function main() {
 	}
 	fs.mkdirSync(distAddonsDir, { recursive: true });
 
-	// 2. Compile C++ Plugin inside Debian 12 Docker container for GLIBC 2.36 compatibility
+	// 2. Compile C++ Plugin inside a persistent Docker builder container for speed and GLIBC 2.36 compatibility
 	try {
+		const builderImage = "metabun-builder:latest";
+
+		// Check if the builder image exists
+		let imageExists = false;
+		try {
+			const images = await runCommandWithOutput(
+				"docker",
+				["images", "-q", builderImage],
+				rootDir,
+			);
+			if (images.trim().length > 0) {
+				imageExists = true;
+			}
+		} catch (_e) {
+			imageExists = false;
+		}
+
+		if (!imageExists) {
+			console.log(
+				`[Build Script] Builder image "${builderImage}" not found. Creating it... (This only happens once)`,
+			);
+			const dockerfileContent = `
+FROM debian:12
+RUN apt-get update && apt-get install -y \\
+    build-essential \\
+    cmake \\
+    libprotobuf-dev \\
+    protobuf-compiler \\
+    && rm -rf /var/lib/apt/lists/*
+`;
+			fs.writeFileSync(
+				path.join(rootDir, "Dockerfile.builder"),
+				dockerfileContent,
+			);
+			await runCommand(
+				"docker",
+				["build", "-t", builderImage, "-f", "Dockerfile.builder", "."],
+				rootDir,
+			);
+			fs.unlinkSync(path.join(rootDir, "Dockerfile.builder"));
+		}
+
+		console.log(
+			`[Build Script] Using persistent builder image: ${builderImage}`,
+		);
 		await runCommand(
 			"docker",
 			[
@@ -44,10 +107,10 @@ async function main() {
 				`${rootDir}:/workspace`,
 				"-w",
 				"/workspace",
-				"debian:12",
+				builderImage,
 				"bash",
 				"-c",
-				"apt-get update && apt-get install -y build-essential cmake libprotobuf-dev protobuf-compiler && rm -rf src/cpp/build && ./src/cpp/build.sh --sdk /workspace/sdks/hl2sdk-cs2 --mmsrc /workspace/sdks/metamod-source --release && cp -v /usr/lib/x86_64-linux-gnu/libprotobuf.so.32 /workspace/src/cpp/build/package/addons/meta-bun/bin/",
+				"rm -rf src/cpp/build && ./src/cpp/build.sh --sdk /workspace/sdks/hl2sdk-cs2 --mmsrc /workspace/sdks/metamod-source --release && cp -v /usr/lib/x86_64-linux-gnu/libprotobuf.so.32 /workspace/src/cpp/build/package/addons/meta-bun/bin/",
 			],
 			rootDir,
 		);
@@ -82,13 +145,15 @@ async function main() {
 	const targetBinDir = path.join(distAddonsDir, "meta-bun/bin");
 	fs.mkdirSync(targetBinDir, { recursive: true });
 
-	const filesInBin = fs.readdirSync(cppPackageBinDir);
-	for (const file of filesInBin) {
-		if (file.includes(".so") || file.endsWith(".dll")) {
-			const srcFile = path.join(cppPackageBinDir, file);
-			const destFile = path.join(targetBinDir, file);
-			console.log(`[Build Script] Copying plugin binary: ${file}`);
-			fs.copyFileSync(srcFile, destFile);
+	if (fs.existsSync(cppPackageBinDir)) {
+		const filesInBin = fs.readdirSync(cppPackageBinDir);
+		for (const file of filesInBin) {
+			if (file.includes(".so") || file.endsWith(".dll")) {
+				const srcFile = path.join(cppPackageBinDir, file);
+				const destFile = path.join(targetBinDir, file);
+				console.log(`[Build Script] Copying plugin binary: ${file}`);
+				fs.copyFileSync(srcFile, destFile);
+			}
 		}
 	}
 
@@ -106,16 +171,6 @@ async function main() {
 	}
 
 	// 5. Copy the Plugin SDK so plugins can resolve "meta-bun/core" at runtime.
-	//
-	//    Layout in dist/addons/meta-bun/:
-	//      sdk/      ← copy of src/ts/natives/   (core.ts, player.ts, …)
-	//      shared/   ← copy of src/ts/shared/    (types/, plugin.ts, …)
-	//
-	//    context-store.ts is replaced by a lightweight globalThis-based shim.
-	//    The bundled runtime (index.js) creates the AsyncLocalStorage instance and
-	//    stores it on globalThis.__metaBunContextStore.  The shim reads from there,
-	//    so even though sdk/core.ts is a separate module instance it shares the
-	//    exact same async context as the runtime.
 	const metaBunDistDir = path.join(distAddonsDir, "meta-bun");
 	const sdkDestDir = path.join(metaBunDistDir, "sdk");
 	const sharedDestDir = path.join(metaBunDistDir, "shared");
@@ -130,17 +185,9 @@ async function main() {
 		recursive: true,
 	});
 
-	// Overwrite context-store.ts with the globalThis shim (no plugin-system imports).
+	// Overwrite context-store.ts with the globalThis shim
 	const ctxStoreShim = `import { AsyncLocalStorage } from "node:async_hooks";
 
-/**
- * SDK context-store shim used inside the deployed dist/.
- *
- * The MetaBun runtime (index.js) stores its AsyncLocalStorage instance on
- * globalThis.__metaBunContextStore so that sdk/ copies of the natives — which
- * Bun loads as separate module instances — still share the exact same context
- * as the bundled runtime.
- */
 export function GetContext(): any {
   const store: AsyncLocalStorage<any> | undefined =
     (globalThis as any).__metaBunContextStore;
@@ -156,7 +203,6 @@ export function GetContext(): any {
   return context;
 }
 
-/** Compatibility alias so import-only consumers do not break. */
 export const pluginContextStore = {
   getStore: (): any => (globalThis as any).__metaBunContextStore?.getStore(),
 } as any;
@@ -192,7 +238,7 @@ export const pluginContextStore = {
 		}
 	}
 
-	// 8. Write package.json — strip dev fields, add exports map for "meta-bun/*" resolution
+	// 8. Write package.json
 	const pkgPath = path.join(rootDir, "package.json");
 	if (fs.existsSync(pkgPath)) {
 		const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
@@ -219,9 +265,7 @@ export const pluginContextStore = {
 		console.log("[Build Script] Wrote package.json with exports map.");
 	}
 
-	// 9. Write tsconfig.json for dist — fixed paths pointing to sdk/
-	//    (We write it fresh because the source tsconfig.json contains // comments
-	//     that make it invalid JSON for JSON.parse.)
+	// 9. Write tsconfig.json for dist
 	const distTsConfig = {
 		compilerOptions: {
 			paths: {
