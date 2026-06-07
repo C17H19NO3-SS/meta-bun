@@ -1,6 +1,6 @@
 {
   "name": "@meta-bun/core",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "description": "High-performance TypeScript plugin framework for CS2 Metamod servers",
   "module": "./src/ts/natives.ts",
   "types": "./src/ts/natives.ts",
@@ -28,13 +28,13 @@
     "url": "https://github.com/C17H19NO3-SS/meta-bun/issues"
   },
   "exports": {
-    ".":         "./src/ts/natives.ts",
-    "./core":    "./src/ts/natives/core.ts",
-    "./player":  "./src/ts/natives/player.ts",
+    ".": "./src/ts/natives.ts",
+    "./core": "./src/ts/natives/core.ts",
+    "./player": "./src/ts/natives/player.ts",
     "./console": "./src/ts/natives/console.ts",
-    "./events":  "./src/ts/natives/events.ts",
-    "./timers":  "./src/ts/natives/timers.ts",
-    "./menus":   "./src/ts/natives/menus.ts"
+    "./events": "./src/ts/natives/events.ts",
+    "./timers": "./src/ts/natives/timers.ts",
+    "./menus": "./src/ts/natives/menus.ts"
   },
   "bin": {
     "create-metabun-plugin": "./scripts/create_plugin_cli.ts"
@@ -47,7 +47,7 @@
   ],
   "scripts": {
     "build": "bun run scripts/build.ts",
-    "test":  "bun test; status=$?; rm -f ./test_meta_bun.db; exit $status",
+    "test": "bun test; status=$?; rm -f ./test_meta_bun.db; exit $status",
     "update": "bun run scripts/update.ts",
     "install-server": "bun run scripts/install_server.ts",
     "npm-publish": "bun run scripts/publish_npm.ts"

@@ -3,18 +3,29 @@ import { mkdirSync, writeFileSync, existsSync } from "node:fs";
 import { join, basename } from "node:path";
 import { spawnSync } from "node:child_process";
 
-const projectName = process.argv[2] || "my-metabun-plugin";
-const projectPath = join(process.cwd(), projectName);
+const inputName = process.argv[2] || "my-metabun-plugin";
+const isCurrentDir = inputName === ".";
+const projectName = isCurrentDir ? basename(process.cwd()) : inputName;
+const projectPath = isCurrentDir ? process.cwd() : join(process.cwd(), inputName);
 
 console.log(`\n\x1b[35m🚀 Creating MetaBun Plugin: ${projectName}...\x1b[0m`);
 
-if (existsSync(projectPath)) {
+// Check if project directory already exists (only if not initializing in current dir)
+if (!isCurrentDir && existsSync(projectPath)) {
   console.error(`\x1b[31mError: Directory ${projectName} already exists.\x1b[0m`);
   process.exit(1);
 }
 
+// Safety check for current directory initialization
+if (isCurrentDir && existsSync(join(projectPath, "package.json"))) {
+  console.error(`\x1b[31mError: A package.json already exists in this directory.\x1b[0m`);
+  process.exit(1);
+}
+
 // 1. Create directory structure
-mkdirSync(projectPath, { recursive: true });
+if (!isCurrentDir) {
+  mkdirSync(projectPath, { recursive: true });
+}
 mkdirSync(join(projectPath, "src"), { recursive: true });
 
 // 2. Create package.json
@@ -51,7 +62,7 @@ writeFileSync(join(projectPath, "tsconfig.json"), JSON.stringify(tsconfig, null,
 // 4. Create example plugin code
 const exampleCode = `import { BasePlugin, type IGameBridge } from "@meta-bun/core";
 
-export default class ${projectName.split("-").map(s => s.charAt(0).toUpperCase() + s.slice(1)).join("")} extends BasePlugin {
+export default class ${projectName.split(/[-_]/).map(s => s.charAt(0).toUpperCase() + s.slice(1)).join("")} extends BasePlugin {
   public override name = "${projectName}";
   public override version = "1.0.0";
   public override author = "Developer";
@@ -81,13 +92,8 @@ console.log("\x1b[33m📦 Installing dependencies (this may take a moment)...\x1
 spawnSync("bun", ["install"], { cwd: projectPath, stdio: "inherit" });
 
 console.log("\n\x1b[32m✅ Successfully created MetaBun Plugin Project!\x1b[0m");
-console.log(`\nNext steps:
-  1. cd ${projectName}
-  2. Write your code in src/index.ts
-  3. Run 'bun run build' to package your plugin
-\x1b[0m`);
-console.log(`\nNext steps:
-  1. cd ${projectName}
-  2. Write your code in src/index.ts
-  3. Run 'bun run build' to package your plugin
-\x1b[0m`);
+if (!isCurrentDir) {
+  console.log(`\nNext steps:\n  1. cd ${projectName}\n  2. Write your code in src/index.ts\n  3. Run 'bun run build' to package your plugin\x1b[0m`);
+} else {
+  console.log(`\nNext steps:\n  1. Write your code in src/index.ts\n  2. Run 'bun run build' to package your plugin\x1b[0m`);
+}
