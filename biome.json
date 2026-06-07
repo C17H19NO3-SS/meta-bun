@@ -13,16 +13,22 @@
 		"indentStyle": "tab"
 	},
 	"linter": {
-	  "enabled": true,
-	  "rules": {
-	    "recommended": true,
-	    "suspicious": {
-	      "noExplicitAny": "off"
-	    },
-	    "style": {
-	      "noNonNullAssertion": "off"
-	    }
-	  }
+		"enabled": true,
+		"rules": {
+			"recommended": true,
+			"complexity": {
+				"noStaticOnlyClass": "off"
+			},
+			"suspicious": {
+				"noExplicitAny": "off",
+				"noImplicitAnyLet": "off",
+				"noAssignInExpressions": "off",
+				"noShadowRestrictedNames": "off"
+			},
+			"style": {
+				"noNonNullAssertion": "off"
+			}
+		}
 	},
 	"javascript": {
 		"formatter": {

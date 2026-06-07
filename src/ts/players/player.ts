@@ -462,6 +462,58 @@ export class Player extends EventEmitter implements IPlayer {
 		this.bridge.Send(payload);
 	}
 
+	public GiveItem(itemName: string): void {
+		this.bridge.Send({
+			action: "give_item",
+			client: this.index.toString(),
+			item: itemName,
+		});
+	}
+
+	public RemoveItem(itemName: string): void {
+		this.bridge.Send({
+			action: "remove_item",
+			client: this.index.toString(),
+			item: itemName,
+		});
+	}
+
+	public SetAmmo(weaponName: string, ammoAmount: number): void {
+		this.bridge.Send({
+			action: "set_ammo",
+			client: this.index.toString(),
+			weapon: weaponName,
+			ammo: ammoAmount.toString(),
+		});
+	}
+
+	public ScreenFade(
+		durationMs: number,
+		r: number,
+		g: number,
+		b: number,
+		a: number,
+	): void {
+		this.bridge.Send({
+			action: "screen_fade",
+			client: this.index.toString(),
+			duration: durationMs.toString(),
+			r: r.toString(),
+			g: g.toString(),
+			b: b.toString(),
+			a: a.toString(),
+		});
+	}
+
+	public ScreenShake(amplitude: number, durationMs: number): void {
+		this.bridge.Send({
+			action: "screen_shake",
+			client: this.index.toString(),
+			amplitude: amplitude.toString(),
+			duration: durationMs.toString(),
+		});
+	}
+
 	public HasFlag(flag: string): boolean {
 		return this.adminManager.HasPermission(this.steamId, flag);
 	}

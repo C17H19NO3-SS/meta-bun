@@ -263,6 +263,9 @@ void MetaBunPlugin::HandleIncomingMessage(const std::string& message) {
     else if (action == "remove_item")        HandleActionRemoveItem(payload);
     else if (action == "set_ammo")           HandleActionSetAmmo(payload);
     else if (action == "unban")              HandleActionUnban(payload);
+    else if (action == "screen_fade")        HandleActionScreenFade(payload);
+    else if (action == "screen_shake")       HandleActionScreenShake(payload);
+    else if (action == "create_entity")      HandleActionCreateEntity(payload);
     else {
         std::cerr << "[MetaBun Plugin] Unknown action: " << action << std::endl;
     }
@@ -1132,5 +1135,43 @@ void MetaBunPlugin::HandleActionHint(const std::unordered_map<std::string, std::
     m_pEngineServer->ServerCommand(cmd.str().c_str());
 #else
     std::cout << "[MetaBun Mock] Hint client=" << client << " text=\"" << text << "\"" << std::endl;
+#endif
+}
+
+void MetaBunPlugin::HandleActionScreenFade(const std::unordered_map<std::string, std::string>& p) {
+    auto cIt = p.find("client");
+    if (cIt == p.end() || !m_pEngineServer) return;
+    int client = std::atoi(cIt->second.c_str());
+    
+    // Fallback logic, as full protobuf usermessages might need specific headers
+    // Using command fallbacks where possible or raw engine functions.
+#ifdef COMPILE_WITH_SOURCE_SDK
+    // Assuming mm_fade or similar command exists in the environment, or we log it for now
+    std::cout << "[MetaBun] ScreenFade not fully mapped yet for client: " << client << std::endl;
+#else
+    std::cout << "[MetaBun Mock] ScreenFade client=" << client << std::endl;
+#endif
+}
+
+void MetaBunPlugin::HandleActionScreenShake(const std::unordered_map<std::string, std::string>& p) {
+    auto cIt = p.find("client");
+    if (cIt == p.end() || !m_pEngineServer) return;
+    int client = std::atoi(cIt->second.c_str());
+#ifdef COMPILE_WITH_SOURCE_SDK
+    std::cout << "[MetaBun] ScreenShake not fully mapped yet for client: " << client << std::endl;
+#else
+    std::cout << "[MetaBun Mock] ScreenShake client=" << client << std::endl;
+#endif
+}
+
+void MetaBunPlugin::HandleActionCreateEntity(const std::unordered_map<std::string, std::string>& p) {
+    auto cIt = p.find("class_name");
+    if (cIt == p.end() || !m_pEngineServer) return;
+    std::string className = cIt->second;
+#ifdef COMPILE_WITH_SOURCE_SDK
+    // Needs g_pServerTools->CreateEntityByName()
+    std::cout << "[MetaBun] Entity spawning requested: " << className << std::endl;
+#else
+    std::cout << "[MetaBun Mock] CreateEntity: " << className << std::endl;
 #endif
 }

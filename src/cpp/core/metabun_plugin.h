@@ -157,6 +157,9 @@ private:
     void HandleActionRemoveItem(const std::unordered_map<std::string, std::string>& p);
     void HandleActionSetAmmo(const std::unordered_map<std::string, std::string>& p);
     void HandleActionUnban(const std::unordered_map<std::string, std::string>& p);
+    void HandleActionScreenFade(const std::unordered_map<std::string, std::string>& p);
+    void HandleActionScreenShake(const std::unordered_map<std::string, std::string>& p);
+    void HandleActionCreateEntity(const std::unordered_map<std::string, std::string>& p);
 
     /**
      * Yeniden bağlanınca aktif hook'ları Bun'a yeniden bildir.

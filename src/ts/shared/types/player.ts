@@ -175,6 +175,26 @@ export interface IPlayer {
 	Teleport(x: number, y: number, z: number): void;
 
 	/**
+	 * Fade the player's screen to a specific color.
+	 * @param duration Duration of the fade in milliseconds.
+	 * @param color Hex color or color name (e.g. #FF0000 or red).
+	 */
+	ScreenFade(
+		durationMs: number,
+		r: number,
+		g: number,
+		b: number,
+		a: number,
+	): void;
+
+	/**
+	 * Shake the player's screen.
+	 * @param amplitude Intensity of the shake.
+	 * @param duration Duration of the shake in milliseconds.
+	 */
+	ScreenShake(amplitude: number, durationMs: number): void;
+
+	/**
 	 * Change the player's team.
 	 */
 	SetTeam(team: Team): void;
