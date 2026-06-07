@@ -1,0 +1,36 @@
+# Exclude everything by default, then whitelist what belongs in the npm package.
+# The npm package only ships the plugin SDK (TypeScript sources + types).
+# The CS2 server runtime, C++ source, build tooling, and test files are excluded.
+
+# --- Development / Build tooling ---
+scripts/
+sdks/
+dist/
+.github/
+.gemini/
+docker-compose*
+
+# --- Server-side runtime (not needed by npm consumers) ---
+src/ts/index.ts
+src/ts/network/
+src/ts/plugin-system/
+src/ts/players/
+src/ts/admins/
+src/cpp/
+
+# --- Config / plugin / translation examples ---
+configs/
+plugins/
+translations/
+
+# --- Test files ---
+test/
+*.test.ts
+*.spec.ts
+test_meta_bun.db
+
+# --- Misc ---
+*.log
+*.zip
+.DS_Store
+node_modules/

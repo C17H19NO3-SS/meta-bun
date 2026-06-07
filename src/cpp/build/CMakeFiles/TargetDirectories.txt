@@ -1,0 +1,7 @@
+/workspace/src/cpp/build/CMakeFiles/metabun_plugin.dir
+/workspace/src/cpp/build/CMakeFiles/edit_cache.dir
+/workspace/src/cpp/build/CMakeFiles/rebuild_cache.dir
+/workspace/src/cpp/build/CMakeFiles/list_install_components.dir
+/workspace/src/cpp/build/CMakeFiles/install.dir
+/workspace/src/cpp/build/CMakeFiles/install/local.dir
+/workspace/src/cpp/build/CMakeFiles/install/strip.dir

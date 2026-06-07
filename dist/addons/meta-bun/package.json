@@ -1,0 +1,46 @@
+{
+  "name": "meta-bun",
+  "version": "1.0.0",
+  "description": "CS2 Metamod plugin framework powered by Bun — write CS2 server plugins in TypeScript",
+  "module": "index.js",
+  "type": "module",
+  "keywords": [
+    "cs2",
+    "counterstrike2",
+    "metamod",
+    "sourcemod",
+    "plugin",
+    "bun",
+    "typescript",
+    "game-server"
+  ],
+  "license": "MIT",
+  "homepage": "https://github.com/YOUR_USERNAME/meta-bun#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/YOUR_USERNAME/meta-bun.git"
+  },
+  "bugs": {
+    "url": "https://github.com/YOUR_USERNAME/meta-bun/issues"
+  },
+  "exports": {
+    ".": "./index.js",
+    "./core": "./sdk/core.ts",
+    "./player": "./sdk/player.ts",
+    "./console": "./sdk/console.ts",
+    "./events": "./sdk/events.ts",
+    "./timers": "./sdk/timers.ts",
+    "./menus": "./sdk/menus.ts",
+    "./shared/*": "./shared/*.ts"
+  },
+  "files": [
+    "src/ts/natives.ts",
+    "src/ts/natives/",
+    "src/ts/shared/",
+    "tsconfig.json"
+  ],
+  "dependencies": {
+    "@msgpack/msgpack": "^3.1.3"
+  },
+  "main": "index.js"
+}

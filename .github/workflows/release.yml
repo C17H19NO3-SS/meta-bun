@@ -1,0 +1,51 @@
+name: Build & Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Build (C++ + TS bundle)
+        run: bun run build
+
+      - name: Package dist as zip
+        run: |
+          cd dist
+          zip -r ../meta-bun-${{ github.ref_name }}.zip addons/
+          cd ..
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: meta-bun-${{ github.ref_name }}.zip
+          generate_release_notes: true
+          body: |
+            ## 📦 Installation
+
+            1. Download `meta-bun-${{ github.ref_name }}.zip`
+            2. Extract and copy the `addons/` folder into your CS2 server's `game/csgo/` directory
+            3. Restart your server
+
+            ## 📋 Requirements
+
+            - CS2 Dedicated Server with [Metamod:Source](https://www.sourcemm.net/) installed
+            - No additional runtime required — Bun is bundled
