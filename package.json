@@ -36,6 +36,9 @@
     "./timers":  "./src/ts/natives/timers.ts",
     "./menus":   "./src/ts/natives/menus.ts"
   },
+  "bin": {
+    "create-metabun-plugin": "./scripts/create_plugin_cli.ts"
+  },
   "files": [
     "src/ts/natives.ts",
     "src/ts/natives/",
@@ -46,7 +49,8 @@
     "build": "bun run scripts/build.ts",
     "test":  "bun test; status=$?; rm -f ./test_meta_bun.db; exit $status",
     "update": "bun run scripts/update.ts",
-    "install-server": "bun run scripts/install_server.ts"
+    "install-server": "bun run scripts/install_server.ts",
+    "npm-publish": "bun run scripts/publish_npm.ts"
   },
   "dependencies": {
     "@msgpack/msgpack": "^3.1.3"

@@ -2,13 +2,14 @@ name: Publish to NPM
 
 on:
   release:
-    types: [created]
+    types: [published] # Release GitHub üzerinde yayınlandığında çalışır
 
 jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest

@@ -1,7 +1,7 @@
 {
   "bridge": {
     "port": 27013,
-    "token": "meta-bun-default-token",
+    "token": "",
     "protocol": "ndjson"
   },
   "rcon": {

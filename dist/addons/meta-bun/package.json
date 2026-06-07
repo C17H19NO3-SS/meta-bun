@@ -1,9 +1,13 @@
 {
-  "name": "meta-bun",
+  "name": "@meta-bun/core",
   "version": "1.0.0",
-  "description": "CS2 Metamod plugin framework powered by Bun — write CS2 server plugins in TypeScript",
+  "description": "High-performance TypeScript plugin framework for CS2 Metamod servers",
   "module": "index.js",
+  "types": "./src/ts/natives.ts",
   "type": "module",
+  "publishConfig": {
+    "access": "public"
+  },
   "keywords": [
     "cs2",
     "counterstrike2",
@@ -15,13 +19,13 @@
     "game-server"
   ],
   "license": "MIT",
-  "homepage": "https://github.com/YOUR_USERNAME/meta-bun#readme",
+  "homepage": "https://github.com/C17H19NO3-SS/meta-bun#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/YOUR_USERNAME/meta-bun.git"
+    "url": "git+https://github.com/C17H19NO3-SS/meta-bun.git"
   },
   "bugs": {
-    "url": "https://github.com/YOUR_USERNAME/meta-bun/issues"
+    "url": "https://github.com/C17H19NO3-SS/meta-bun/issues"
   },
   "exports": {
     ".": "./index.js",
