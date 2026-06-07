@@ -53,6 +53,7 @@
 		"update": "bun run scripts/update.ts",
 		"install-server": "bun run scripts/install_server.ts",
 		"npm-publish": "bun run scripts/publish_npm.ts",
+		"release": "bun run scripts/release.ts",
 		"prepare": "husky"
 	},
 	"dependencies": {
