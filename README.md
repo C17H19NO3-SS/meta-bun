@@ -97,10 +97,16 @@ export default class MyPlugin extends BasePlugin {
 
 ---
 
-## 📜 License
+## ⚖️ License & Responsibility
 
-Private repository. All rights reserved. Distributed via `@meta-bun/core` on NPM.
+This project is licensed under the **MIT License**. You are free to:
+- Use, copy, and modify the software for any purpose.
+- Distribute and sell the software.
+- Include it in private or commercial projects.
+
+**Disclaimer:**  
+The software is provided "as is", without warranty of any kind. The authors or copyright holders are not responsible for any damage, server bans, or data loss resulting from the use of this framework. By using MetaBun, you assume all responsibility for its implementation and consequences on your game server.
 
 ---
 
-**Maintained by [C17H19NO3-SS](https://github.com/C17H19NO3-SS)**
+**Maintained with ❤️ by [C17H19NO3-SS](https://github.com/C17H19NO3-SS)**
