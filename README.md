@@ -46,7 +46,9 @@ Please also review our [Code of Conduct](CODE_OF_CONDUCT.md) and [Security Polic
 ### Code Quality Tools
 - `bun run lint` — Checks code style and formatting using Biome.
 - `bun run format` — Auto-formats the TypeScript code.
-- `bun test` — Runs our local test suite.
+- `bun test` — Runs our local test suite. 
+
+*(Note: Our test and development environment exactly mirrors our production Ubuntu Linux servers to ensure maximum consistency and reliability.)*
 
 ---
 
