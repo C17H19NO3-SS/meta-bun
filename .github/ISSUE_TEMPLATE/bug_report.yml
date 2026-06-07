@@ -1,0 +1,55 @@
+name: Bug Report
+description: Create a report to help us improve MetaBun
+title: "[BUG] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to fill out this bug report!
+  - type: textarea
+    id: description
+    attributes:
+      label: Describe the bug
+      description: A clear and concise description of what the bug is.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: To Reproduce
+      description: Steps to reproduce the behavior.
+      placeholder: |
+        1. Start the server with plugin X
+        2. Run command Y
+        3. See error
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: A clear and concise description of what you expected to happen.
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: OS / Server Environment
+      description: e.g., Ubuntu 22.04, Windows Server 2022
+    validations:
+      required: true
+  - type: input
+    id: versions
+    attributes:
+      label: MetaBun and Metamod Versions
+      description: What version of MetaBun and Metamod:Source are you using?
+      placeholder: "MetaBun v1.0.3, MM:S 2.0.0-dev+1234"
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Server Logs / Error Output
+      description: Paste any relevant server console logs or crash dumps here.
+      render: shell

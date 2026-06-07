@@ -1,64 +1,75 @@
 {
-  "name": "@meta-bun/core",
-  "version": "1.0.3",
-  "description": "High-performance TypeScript plugin framework for CS2 Metamod servers",
-  "module": "./src/ts/natives.ts",
-  "types": "./src/ts/natives.ts",
-  "type": "module",
-  "publishConfig": {
-    "access": "public"
-  },
-  "keywords": [
-    "cs2",
-    "counterstrike2",
-    "metamod",
-    "sourcemod",
-    "plugin",
-    "bun",
-    "typescript",
-    "game-server"
-  ],
-  "license": "MIT",
-  "homepage": "https://github.com/C17H19NO3-SS/meta-bun#readme",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/C17H19NO3-SS/meta-bun.git"
-  },
-  "bugs": {
-    "url": "https://github.com/C17H19NO3-SS/meta-bun/issues"
-  },
-  "exports": {
-    ".": "./src/ts/natives.ts",
-    "./core": "./src/ts/natives/core.ts",
-    "./player": "./src/ts/natives/player.ts",
-    "./console": "./src/ts/natives/console.ts",
-    "./events": "./src/ts/natives/events.ts",
-    "./timers": "./src/ts/natives/timers.ts",
-    "./menus": "./src/ts/natives/menus.ts"
-  },
-  "bin": {
-    "create-metabun-plugin": "./scripts/create_plugin_cli.ts"
-  },
-  "files": [
-    "src/ts/natives.ts",
-    "src/ts/natives/",
-    "src/ts/shared/",
-    "tsconfig.json"
-  ],
-  "scripts": {
-    "build": "bun run scripts/build.ts",
-    "test": "bun test; status=$?; rm -f ./test_meta_bun.db; exit $status",
-    "update": "bun run scripts/update.ts",
-    "install-server": "bun run scripts/install_server.ts",
-    "npm-publish": "bun run scripts/publish_npm.ts"
-  },
-  "dependencies": {
-    "@msgpack/msgpack": "^3.1.3"
-  },
-  "devDependencies": {
-    "@types/bun": "^1.3.14"
-  },
-  "peerDependencies": {
-    "typescript": "^5"
-  }
+	"name": "@meta-bun/core",
+	"version": "1.0.3",
+	"description": "High-performance TypeScript plugin framework for CS2 Metamod servers",
+	"module": "./src/ts/natives.ts",
+	"types": "./src/ts/natives.ts",
+	"type": "module",
+	"publishConfig": {
+		"access": "public"
+	},
+	"keywords": [
+		"cs2",
+		"counterstrike2",
+		"metamod",
+		"sourcemod",
+		"plugin",
+		"bun",
+		"typescript",
+		"game-server"
+	],
+	"license": "MIT",
+	"homepage": "https://github.com/C17H19NO3-SS/meta-bun#readme",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/C17H19NO3-SS/meta-bun.git"
+	},
+	"bugs": {
+		"url": "https://github.com/C17H19NO3-SS/meta-bun/issues"
+	},
+	"exports": {
+		".": "./src/ts/natives.ts",
+		"./core": "./src/ts/natives/core.ts",
+		"./player": "./src/ts/natives/player.ts",
+		"./console": "./src/ts/natives/console.ts",
+		"./events": "./src/ts/natives/events.ts",
+		"./timers": "./src/ts/natives/timers.ts",
+		"./menus": "./src/ts/natives/menus.ts"
+	},
+	"bin": {
+		"create-metabun-plugin": "./scripts/create_plugin_cli.ts"
+	},
+	"files": [
+		"src/ts/natives.ts",
+		"src/ts/natives/",
+		"src/ts/shared/",
+		"tsconfig.json"
+	],
+	"scripts": {
+		"lint": "biome check .",
+		"format": "biome format --write .",
+		"build": "bun run scripts/build.ts",
+		"test": "bun test; status=$?; rm -f ./test_meta_bun.db; exit $status",
+		"update": "bun run scripts/update.ts",
+		"install-server": "bun run scripts/install_server.ts",
+		"npm-publish": "bun run scripts/publish_npm.ts",
+		"prepare": "husky"
+	},
+	"dependencies": {
+		"@msgpack/msgpack": "^3.1.3"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "^2.4.16",
+		"@types/bun": "^1.3.14",
+		"husky": "^9.1.7",
+		"lint-staged": "^17.0.7"
+	},
+	"lint-staged": {
+		"*.{ts,js,json}": [
+			"biome check --write"
+		]
+	},
+	"peerDependencies": {
+		"typescript": "^5"
+	}
 }

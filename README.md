@@ -35,6 +35,21 @@ bun run build
 
 ---
 
+## 🤝 Contributing & Community
+
+MetaBun is an open-source project and we welcome community contributions! 
+
+Before contributing, please read our [Contributing Guide](CONTRIBUTING.md) to understand how to set up your environment, build the C++ modules, and run our tests. We enforce code quality using **Biome** for TypeScript and **clang-format** for C++.
+
+Please also review our [Code of Conduct](CODE_OF_CONDUCT.md) and [Security Policy](SECURITY.md).
+
+### Code Quality Tools
+- `bun run lint` — Checks code style and formatting using Biome.
+- `bun run format` — Auto-formats the TypeScript code.
+- `bun test` — Runs our local test suite.
+
+---
+
 ## 📦 Framework Management
 
 ### Update System (Development)
