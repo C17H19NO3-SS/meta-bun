@@ -51,11 +51,9 @@ async function main() {
 	}
 	fs.mkdirSync(distAddonsDir, { recursive: true });
 
-	// 2. Compile C++ Plugin inside a persistent Docker builder container for speed and GLIBC 2.36 compatibility
+	// 2. Compile C++ Plugin inside a persistent Docker builder container
 	try {
 		const builderImage = "metabun-builder:v2";
-
-		// Check if the builder image exists
 		let imageExists = false;
 		try {
 			const images = await runCommandWithOutput(
@@ -72,7 +70,7 @@ async function main() {
 
 		if (!imageExists) {
 			console.log(
-				`[Build Script] Builder image "${builderImage}" not found. Creating it... (This only happens once)`,
+				`[Build Script] Builder image "${builderImage}" not found. Creating it...`,
 			);
 			const dockerfileContent = `
 FROM debian:12
@@ -120,85 +118,84 @@ RUN apt-get update && apt-get install -y \\
 		process.exit(1);
 	}
 
-	// 3. Bundle the TS Application (the server runtime — index.js)
+	const metaBunDistDir = path.join(distAddonsDir, "meta-bun");
+
+	// 3. Bundle the Core Framework SDK as a single file for plugins to import
+	// This ensures AsyncLocalStorage (context) is shared via the same module instance
+	console.log("[Build Script] Bundling MetaBun Core SDK...");
+	const sdkResult = await Bun.build({
+		entrypoints: [path.join(rootDir, "src/ts/natives.ts")],
+		outdir: path.join(metaBunDistDir, "sdk"),
+		naming: "core.js",
+		target: "bun",
+		minify: true,
+	});
+
+	if (!sdkResult.success) {
+		console.error("[Build Script] SDK bundling failed!");
+		process.exit(1);
+	}
+
+	// 4. Bundle the TS Application (the server runtime — index.js)
 	console.log("[Build Script] Bundling TS application using Bun...");
 	const bundleResult = await Bun.build({
 		entrypoints: [path.join(rootDir, "src/ts/index.ts")],
-		outdir: path.join(distAddonsDir, "meta-bun"),
+		outdir: metaBunDistDir,
 		target: "bun",
-		minify: true, // Optimized for production
+		minify: true,
+		external: ["meta-bun", "@meta-bun/core"], // Treat SDK as external in main app too if needed
 	});
 
 	if (!bundleResult.success) {
 		console.error("[Build Script] Bun bundling failed!");
-		for (const message of bundleResult.logs) {
-			console.error(message);
-		}
+		for (const message of bundleResult.logs) console.error(message);
 		process.exit(1);
 	}
-	console.log("[Build Script] Bun bundling completed successfully.");
 
-	// 4. Copy the compiled C++ plugin binary to dist/addons/meta-bun/bin/
+	// 5. Copy the compiled C++ plugin binary
 	const cppPackageBinDir = path.join(
 		rootDir,
 		"src/cpp/build/package/addons/meta-bun/bin",
 	);
-	const targetBinDir = path.join(distAddonsDir, "meta-bun/bin");
+	const targetBinDir = path.join(metaBunDistDir, "bin");
 	fs.mkdirSync(targetBinDir, { recursive: true });
 
 	if (fs.existsSync(cppPackageBinDir)) {
 		const filesInBin = fs.readdirSync(cppPackageBinDir);
 		for (const file of filesInBin) {
 			if (file.includes(".so") || file.endsWith(".dll")) {
-				const srcFile = path.join(cppPackageBinDir, file);
-				const destFile = path.join(targetBinDir, file);
-				console.log(`[Build Script] Copying plugin binary: ${file}`);
-				fs.copyFileSync(srcFile, destFile);
+				fs.copyFileSync(
+					path.join(cppPackageBinDir, file),
+					path.join(targetBinDir, file),
+				);
 			}
 		}
 	}
 
-	// Copy host's bun binary as a bundled runtime to targetBinDir
+	// Copy host's bun binary
 	const hostBunPath = "/root/.bun/bin/bun";
 	if (fs.existsSync(hostBunPath)) {
 		const destBunPath = path.join(targetBinDir, "bun");
-		console.log(`[Build Script] Copying host Bun runtime to: ${destBunPath}`);
 		fs.copyFileSync(hostBunPath, destBunPath);
 		fs.chmodSync(destBunPath, 0o755);
-	} else {
-		console.warn(
-			`[Build Script] Warning: Host Bun runtime not found at ${hostBunPath}`,
-		);
 	}
-
-	// 5. Clean Metadata and unwanted source files
-	const metaBunDistDir = path.join(distAddonsDir, "meta-bun");
 
 	// 6. Generate metabun.vdf for Metamod
 	const metamodDir = path.join(distAddonsDir, "metamod");
 	fs.mkdirSync(metamodDir, { recursive: true });
-	const vdfContent = `"Metamod Plugin"
-{
-\t"alias"\t"metabun"
-\t"file"\t"addons/meta-bun/bin/libmetabun_plugin"
-}
-`;
+	const vdfContent = `"Metamod Plugin"\n{\n\t"alias"\t"metabun"\n\t"file"\t"addons/meta-bun/bin/libmetabun_plugin"\n}\n`;
 	fs.writeFileSync(path.join(metamodDir, "metabun.vdf"), vdfContent);
-	console.log(
-		`[Build Script] Generated Metamod VDF loader at: ${path.join(metamodDir, "metabun.vdf")}`,
-	);
 
 	// 7. Copy configs, translations
 	for (const dir of ["configs", "translations"]) {
 		const srcPath = path.join(rootDir, dir);
 		const destPath = path.join(metaBunDistDir, dir);
-		if (fs.existsSync(srcPath)) {
-			console.log(`[Build Script] Copying directory: ${dir}`);
+		if (fs.existsSync(srcPath))
 			fs.cpSync(srcPath, destPath, { recursive: true });
-		}
 	}
 
-	// 7.1. Compile and Copy Plugins
+	// 8. Compile Plugins - IMPORTANT: Mark framework as external
+	// They will resolve it from the /sdk/core.js we created.
 	const pluginsSrcDir = path.join(rootDir, "plugins");
 	const pluginsDestDir = path.join(metaBunDistDir, "plugins");
 	fs.mkdirSync(pluginsDestDir, { recursive: true });
@@ -209,71 +206,55 @@ RUN apt-get update && apt-get install -y \\
 			const pluginPath = path.join(pluginsSrcDir, pluginName);
 			if (fs.statSync(pluginPath).isDirectory()) {
 				console.log(`[Build Script] Compiling plugin: ${pluginName}`);
-
-				// Find entry point (index.ts or main file)
 				const entryPoint = path.join(pluginPath, "index.ts");
 				if (fs.existsSync(entryPoint)) {
 					const pluginOutDir = path.join(pluginsDestDir, pluginName);
 					fs.mkdirSync(pluginOutDir, { recursive: true });
 
-					const pluginBuild = await Bun.build({
+					await Bun.build({
 						entrypoints: [entryPoint],
 						outdir: pluginOutDir,
 						target: "bun",
 						minify: true,
-						// Do not mark framework as external so it's bundled in
+						// Redirect framework imports to our bundled core.js
+						external: ["meta-bun", "meta-bun/*", "@meta-bun/core"],
 					});
 
-					if (!pluginBuild.success) {
-						console.error(
-							`[Build Script] Failed to compile plugin: ${pluginName}`,
+					const pkgJsonPath = path.join(pluginPath, "package.json");
+					if (fs.existsSync(pkgJsonPath)) {
+						const pkg = JSON.parse(fs.readFileSync(pkgJsonPath, "utf8"));
+						pkg.main = "index.js";
+						pkg.module = "index.js";
+						fs.writeFileSync(
+							path.join(pluginOutDir, "package.json"),
+							JSON.stringify(pkg, null, 2),
+							"utf8",
 						);
-						for (const log of pluginBuild.logs) console.error(log);
-					} else {
-						// Also copy and rewrite package.json of the plugin if it exists
-						const pkgJsonPath = path.join(pluginPath, "package.json");
-						if (fs.existsSync(pkgJsonPath)) {
-							const pkg = JSON.parse(fs.readFileSync(pkgJsonPath, "utf8"));
-							pkg.main = "index.js";
-							pkg.module = "index.js";
-							pkg.types = "index.ts"; // Keep types reference if needed for other plugins
-							fs.writeFileSync(
-								path.join(pluginOutDir, "package.json"),
-								JSON.stringify(pkg, null, 2),
-								"utf8",
-							);
-						}
 					}
 				}
 			}
 		}
 	}
 
-	// 8. Write package.json
+	// 9. Write minimal package.json for root
 	const pkgPath = path.join(rootDir, "package.json");
 	if (fs.existsSync(pkgPath)) {
 		const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
-		pkg.module = "index.js";
 		pkg.main = "index.js";
 		delete pkg.scripts;
 		delete pkg.devDependencies;
-		delete pkg.peerDependencies;
+		// Add an import map to allow plugins to find @meta-bun/core
+		pkg.imports = {
+			"@meta-bun/core": "./sdk/core.js",
+		};
 		fs.writeFileSync(
 			path.join(metaBunDistDir, "package.json"),
 			JSON.stringify(pkg, null, 2),
 			"utf8",
 		);
-		console.log("[Build Script] Wrote minimal package.json.");
 	}
 
-	// 10. Copy bunfig.toml as-is
-	const bunfigPath = path.join(rootDir, "bunfig.toml");
-	if (fs.existsSync(bunfigPath)) {
-		fs.copyFileSync(bunfigPath, path.join(metaBunDistDir, "bunfig.toml"));
-		console.log("[Build Script] Copied bunfig.toml.");
-	}
-
-	// FINAL PRUNE: Remove any .ts or .tsx files that might have been copied in plugins/ or other folders
+	// 10. Final pruning
 	const finalPrune = (dir: string) => {
 		if (!fs.existsSync(dir)) return;
 		const files = fs.readdirSync(dir);
@@ -281,6 +262,7 @@ RUN apt-get update && apt-get install -y \\
 			const fullPath = path.join(dir, file);
 			if (fs.statSync(fullPath).isDirectory()) {
 				finalPrune(fullPath);
+				if (fs.readdirSync(fullPath).length === 0) fs.rmdirSync(fullPath);
 			} else {
 				if (
 					file.endsWith(".ts") ||
@@ -292,13 +274,10 @@ RUN apt-get update && apt-get install -y \\
 			}
 		}
 	};
-
-	console.log("[Build Script] Final pruning of source files...");
 	finalPrune(metaBunDistDir);
 
 	console.log("\n========================================================");
 	console.log("[Build Script] ✅ BUILD COMPLETED SUCCESSFULLY!");
-	console.log(`[Build Script] Ready to upload to server: ${distAddonsDir}`);
 	console.log("========================================================");
 }
 
