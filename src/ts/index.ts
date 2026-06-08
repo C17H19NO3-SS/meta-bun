@@ -66,7 +66,6 @@ export class MetaBunApp {
 	 * @param port Socket port to listen on for C++ bridge connections.
 	 */
 	constructor(private port: number) {
-		this.LoadSettings();
 		this.bridge = new Bridge();
 		this.dbManager = new DatabaseManager();
 		this.adminManager = new AdminManager(this.dbManager);
@@ -87,6 +86,8 @@ export class MetaBunApp {
 			this.GetEngineTime.bind(this),
 		);
 
+		this.LoadSettings();
+
 		this.protocol =
 			Bun.env["BRIDGE_PROTOCOL"] || this.settings.bridge?.protocol || "ndjson";
 		this.bridge.SetProtocol(this.protocol as BridgeProtocol);
@@ -97,13 +98,19 @@ export class MetaBunApp {
 		if (existsSync(configPath)) {
 			try {
 				this.settings = JSON.parse(readFileSync(configPath, "utf-8"));
-				this.pluginManager.LogMessage(
-					"Merkezi ayarlar yuklendi: {Green}configs/core/settings.json{Default}",
-				);
+				if (this.pluginManager) {
+					this.pluginManager.LogMessage(
+						"Merkezi ayarlar yuklendi: {Green}configs/core/settings.json{Default}",
+					);
+				}
 			} catch (err) {
-				this.pluginManager.LogMessage(
-					`{Red}Hata: settings.json yuklenemedi: ${err}`,
-				);
+				if (this.pluginManager) {
+					this.pluginManager.LogMessage(
+						`{Red}Hata: settings.json yuklenemedi: ${err}`,
+					);
+				} else {
+					console.error(`[MetaBun] Error loading settings.json: ${err}`);
+				}
 			}
 		}
 	}
