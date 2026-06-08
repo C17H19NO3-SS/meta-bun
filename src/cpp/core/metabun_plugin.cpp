@@ -201,6 +201,10 @@ bool MetaBunPlugin::Unload(char *error, size_t maxlen) {
     return true;
 }
 
+void MetaBunPlugin::AllPluginsLoaded() {
+    // Optional: add logic here if needed
+}
+
 // ─── Reconnect Callback ───────────────────────────────────────────────────────
 
 void MetaBunPlugin::OnBridgeReconnect() {
