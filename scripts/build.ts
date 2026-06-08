@@ -126,7 +126,7 @@ RUN apt-get update && apt-get install -y \\
 		entrypoints: [path.join(rootDir, "src/ts/index.ts")],
 		outdir: path.join(distAddonsDir, "meta-bun"),
 		target: "bun",
-		minify: false,
+		minify: true, // Optimized for production
 	});
 
 	if (!bundleResult.success) {
@@ -171,90 +171,8 @@ RUN apt-get update && apt-get install -y \\
 		);
 	}
 
-	// 5. Copy the Plugin SDK (keeping only what's necessary for runtime resolution)
+	// 5. Clean Metadata and unwanted source files
 	const metaBunDistDir = path.join(distAddonsDir, "meta-bun");
-	const sdkDestDir = path.join(metaBunDistDir, "sdk");
-	const sharedDestDir = path.join(metaBunDistDir, "shared");
-
-	console.log(
-		"[Build Script] Copying Plugin SDK (compiled files only) to dist...",
-	);
-
-	// Create directories
-	fs.mkdirSync(sdkDestDir, { recursive: true });
-	fs.mkdirSync(sharedDestDir, { recursive: true });
-
-	// Instead of copying everything, we only copy the necessary types and logic
-	// or ideally, we should bundle the SDK as well if plugins will import it.
-	// For now, let's copy and then prune .ts files if they are not needed.
-	fs.cpSync(path.join(rootDir, "src/ts/natives"), sdkDestDir, {
-		recursive: true,
-	});
-	fs.cpSync(path.join(rootDir, "src/ts/shared"), sharedDestDir, {
-		recursive: true,
-	});
-
-	// PRUNE: Remove uncompiled source files from the dist directory to keep it clean.
-	// We keep .d.ts files for IntelliSense if needed, but remove raw .ts implementations
-	// that have been bundled into index.js.
-	const pruneExtensions = [".ts", ".tsx"];
-	const keepFiles = [
-		"index.ts",
-		"core.ts",
-		"player.ts",
-		"console.ts",
-		"events.ts",
-		"timers.ts",
-		"menus.ts",
-	]; // Public API entry points
-
-	const pruneDir = (dir: string) => {
-		const files = fs.readdirSync(dir);
-		for (const file of files) {
-			const fullPath = path.join(dir, file);
-			if (fs.statSync(fullPath).isDirectory()) {
-				pruneDir(fullPath);
-			} else {
-				const ext = path.extname(file);
-				if (pruneExtensions.includes(ext) && !keepFiles.includes(file)) {
-					fs.unlinkSync(fullPath);
-				}
-			}
-		}
-	};
-
-	// Prune the SDK and shared directories in dist to keep only types or public entry points
-	pruneDir(sdkDestDir);
-	pruneDir(sharedDestDir);
-
-	// Overwrite context-store.ts with the globalThis shim
-	const ctxStoreShim = `import { AsyncLocalStorage } from "node:async_hooks";
-
-export function GetContext(): any {
-  const store: AsyncLocalStorage<any> | undefined =
-    (globalThis as any).__metaBunContextStore;
-  if (!store) {
-    throw new Error(
-      "[MetaBun] Context store not found. Make sure the MetaBun runtime is loaded."
-    );
-  }
-  const context = store.getStore();
-  if (!context) {
-    throw new Error("[MetaBun] Native function called outside of an active plugin context!");
-  }
-  return context;
-}
-
-export const pluginContextStore = {
-  getStore: (): any => (globalThis as any).__metaBunContextStore?.getStore(),
-} as any;
-`;
-	fs.writeFileSync(
-		path.join(sharedDestDir, "context-store.ts"),
-		ctxStoreShim,
-		"utf8",
-	);
-	console.log("[Build Script] Wrote SDK context-store shim.");
 
 	// 6. Generate metabun.vdf for Metamod
 	const metamodDir = path.join(distAddonsDir, "metamod");
@@ -270,7 +188,7 @@ export const pluginContextStore = {
 		`[Build Script] Generated Metamod VDF loader at: ${path.join(metamodDir, "metabun.vdf")}`,
 	);
 
-	// 7. Copy configs, plugins, translations
+	// 7. Copy configs, plugins (compiled only), translations
 	for (const dir of ["configs", "plugins", "translations"]) {
 		const srcPath = path.join(rootDir, dir);
 		const destPath = path.join(metaBunDistDir, dir);
@@ -286,16 +204,6 @@ export const pluginContextStore = {
 		const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
 		pkg.module = "index.js";
 		pkg.main = "index.js";
-		pkg.exports = {
-			".": "./index.js",
-			"./core": "./sdk/core.ts",
-			"./player": "./sdk/player.ts",
-			"./console": "./sdk/console.ts",
-			"./events": "./sdk/events.ts",
-			"./timers": "./sdk/timers.ts",
-			"./menus": "./sdk/menus.ts",
-			"./shared/*": "./shared/*.ts",
-		};
 		delete pkg.scripts;
 		delete pkg.devDependencies;
 		delete pkg.peerDependencies;
@@ -304,43 +212,8 @@ export const pluginContextStore = {
 			JSON.stringify(pkg, null, 2),
 			"utf8",
 		);
-		console.log("[Build Script] Wrote package.json with exports map.");
+		console.log("[Build Script] Wrote minimal package.json.");
 	}
-
-	// 9. Write tsconfig.json for dist
-	const distTsConfig = {
-		compilerOptions: {
-			paths: {
-				"meta-bun": ["./sdk/index.ts"],
-				"meta-bun/shared/*": ["./shared/*"],
-				"meta-bun/*": ["./sdk/*.ts"],
-			},
-			lib: ["ESNext"],
-			target: "ESNext",
-			module: "Preserve",
-			moduleDetection: "force",
-			jsx: "react-jsx",
-			allowJs: true,
-			types: ["bun"],
-			experimentalDecorators: true,
-			emitDecoratorMetadata: true,
-			moduleResolution: "bundler",
-			allowImportingTsExtensions: true,
-			verbatimModuleSyntax: true,
-			noEmit: true,
-			strict: true,
-			skipLibCheck: true,
-			noFallthroughCasesInSwitch: true,
-			noUncheckedIndexedAccess: true,
-			noImplicitOverride: true,
-		},
-	};
-	fs.writeFileSync(
-		path.join(metaBunDistDir, "tsconfig.json"),
-		JSON.stringify(distTsConfig, null, 2),
-		"utf8",
-	);
-	console.log("[Build Script] Wrote dist tsconfig.json with sdk/ paths.");
 
 	// 10. Copy bunfig.toml as-is
 	const bunfigPath = path.join(rootDir, "bunfig.toml");
@@ -348,6 +221,29 @@ export const pluginContextStore = {
 		fs.copyFileSync(bunfigPath, path.join(metaBunDistDir, "bunfig.toml"));
 		console.log("[Build Script] Copied bunfig.toml.");
 	}
+
+	// FINAL PRUNE: Remove any .ts or .tsx files that might have been copied in plugins/ or other folders
+	const finalPrune = (dir: string) => {
+		if (!fs.existsSync(dir)) return;
+		const files = fs.readdirSync(dir);
+		for (const file of files) {
+			const fullPath = path.join(dir, file);
+			if (fs.statSync(fullPath).isDirectory()) {
+				finalPrune(fullPath);
+			} else {
+				if (
+					file.endsWith(".ts") ||
+					file.endsWith(".tsx") ||
+					file.endsWith(".md")
+				) {
+					fs.unlinkSync(fullPath);
+				}
+			}
+		}
+	};
+
+	console.log("[Build Script] Final pruning of source files...");
+	finalPrune(metaBunDistDir);
 
 	console.log("\n========================================================");
 	console.log("[Build Script] ✅ BUILD COMPLETED SUCCESSFULLY!");
