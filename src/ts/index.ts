@@ -169,16 +169,13 @@ export class MetaBunApp {
 												this.authenticatedSockets.add(bunSocket);
 												this.bridge.SetSocket(bunSocket);
 												this.pluginManager.emit("BridgeConnected");
-												bunSocket.write(
-													`${JSON.stringify({ event: "auth_success" })}\n`,
-												);
+												this.bridge.Send({ action: "auth_success" });
 											} else {
 												this.pluginManager.LogMessage(
 													"{Red}Hata: Bridge yetkilendirme basarisiz. Yanlis token.{Default}",
 												);
-												bunSocket.write(
-													`${JSON.stringify({ event: "auth_failed" })}\n`,
-												);
+												this.bridge.SetSocket(bunSocket);
+												this.bridge.Send({ action: "auth_failed" });
 												bunSocket.close();
 											}
 										} else {

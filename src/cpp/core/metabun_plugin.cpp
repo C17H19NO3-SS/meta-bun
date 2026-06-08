@@ -453,79 +453,89 @@ int MetaBunPlugin::OnTakeDamage(int victim, int attacker, float damage,
 
 void MetaBunPlugin::OnRoundStart(int timelimit, int fraglimit) {
     if (!m_EventManager.IsHooked("RoundStart") || !m_Bridge.IsConnected()) return;
-    std::ostringstream ss;
-    ss << "{\"event\":\"RoundStart\",\"timelimit\":" << timelimit
-       << ",\"fraglimit\":" << fraglimit << "}\n";
-    Send(njson::parse(ss.str()));
+    njson j;
+    j["event"] = "RoundStart";
+    j["timelimit"] = timelimit;
+    j["fraglimit"] = fraglimit;
+    Send(j);
 }
 
 void MetaBunPlugin::OnRoundEnd(int winner, int reason) {
     if (!m_EventManager.IsHooked("RoundEnd") || !m_Bridge.IsConnected()) return;
-    std::ostringstream ss;
-    ss << "{\"event\":\"RoundEnd\",\"winner\":" << winner
-       << ",\"reason\":" << reason << "}\n";
-    Send(njson::parse(ss.str()));
+    njson j;
+    j["event"] = "RoundEnd";
+    j["winner"] = winner;
+    j["reason"] = reason;
+    Send(j);
 }
 
 void MetaBunPlugin::OnBombPlanted(int clientIndex, const std::string& site) {
     if (!m_EventManager.IsHooked("BombPlanted") || !m_Bridge.IsConnected()) return;
-    std::ostringstream ss;
-    ss << "{\"event\":\"BombPlanted\",\"client\":" << clientIndex
-       << ",\"site\":\"" << json_utils::EscapeString(site) << "\"}\n";
-    Send(njson::parse(ss.str()));
+    njson j;
+    j["event"] = "BombPlanted";
+    j["client"] = clientIndex;
+    j["site"] = site;
+    Send(j);
 }
 
 void MetaBunPlugin::OnBombDefused(int clientIndex, const std::string& site) {
     if (!m_EventManager.IsHooked("BombDefused") || !m_Bridge.IsConnected()) return;
-    std::ostringstream ss;
-    ss << "{\"event\":\"BombDefused\",\"client\":" << clientIndex
-       << ",\"site\":\"" << json_utils::EscapeString(site) << "\"}\n";
-    Send(njson::parse(ss.str()));
+    njson j;
+    j["event"] = "BombDefused";
+    j["client"] = clientIndex;
+    j["site"] = site;
+    Send(j);
 }
 
 void MetaBunPlugin::OnBombExploded(int clientIndex, const std::string& site) {
     if (!m_EventManager.IsHooked("BombExploded") || !m_Bridge.IsConnected()) return;
-    std::ostringstream ss;
-    ss << "{\"event\":\"BombExploded\",\"client\":" << clientIndex
-       << ",\"site\":\"" << json_utils::EscapeString(site) << "\"}\n";
-    Send(njson::parse(ss.str()));
+    njson j;
+    j["event"] = "BombExploded";
+    j["client"] = clientIndex;
+    j["site"] = site;
+    Send(j);
 }
 
 void MetaBunPlugin::OnHostageRescued(int clientIndex, int hostageIndex) {
     if (!m_EventManager.IsHooked("HostageRescued") || !m_Bridge.IsConnected()) return;
-    std::ostringstream ss;
-    ss << "{\"event\":\"HostageRescued\",\"client\":" << clientIndex
-       << ",\"hostage\":" << hostageIndex << "}\n";
-    Send(njson::parse(ss.str()));
+    njson j;
+    j["event"] = "HostageRescued";
+    j["client"] = clientIndex;
+    j["hostage"] = hostageIndex;
+    Send(j);
 }
 
 void MetaBunPlugin::OnItemPickup(int clientIndex, const std::string& item) {
     if (!m_EventManager.IsHooked("ItemPickup") || !m_Bridge.IsConnected()) return;
-    std::ostringstream ss;
-    ss << "{\"event\":\"ItemPickup\",\"client\":" << clientIndex
-       << ",\"item\":\"" << json_utils::EscapeString(item) << "\"}\n";
-    Send(njson::parse(ss.str()));
+    njson j;
+    j["event"] = "ItemPickup";
+    j["client"] = clientIndex;
+    j["item"] = item;
+    Send(j);
 }
 
 void MetaBunPlugin::OnWeaponFire(int clientIndex, const std::string& weapon) {
     if (!m_EventManager.IsHooked("WeaponFire") || !m_Bridge.IsConnected()) return;
-    std::ostringstream ss;
-    ss << "{\"event\":\"WeaponFire\",\"client\":" << clientIndex
-       << ",\"weapon\":\"" << json_utils::EscapeString(weapon) << "\"}\n";
-    Send(njson::parse(ss.str()));
+    njson j;
+    j["event"] = "WeaponFire";
+    j["client"] = clientIndex;
+    j["weapon"] = weapon;
+    Send(j);
 }
 
 void MetaBunPlugin::OnMapStart(const std::string& mapName) {
     if (!m_Bridge.IsConnected()) return;
-    std::ostringstream ss;
-    ss << "{\"event\":\"MapStart\",\"mapName\":\""
-       << json_utils::EscapeString(mapName) << "\"}\n";
-    Send(njson::parse(ss.str()));
+    njson j;
+    j["event"] = "MapStart";
+    j["mapName"] = mapName;
+    Send(j);
 }
 
 void MetaBunPlugin::OnMapEnd() {
     if (!m_Bridge.IsConnected()) return;
-    m_Bridge.Send(std::string("{\"event\":\"MapEnd\"}\n"));
+    njson j;
+    j["event"] = "MapEnd";
+    Send(j);
 }
 
 // ─── Action Handlers ──────────────────────────────────────────────────────────

@@ -116,8 +116,14 @@ bool BridgeClient::EstablishConnection() {
 #endif
     if (connect(m_Socket, (struct sockaddr*)&addr, sizeof(addr)) == SOCKET_ERROR) { CleanupSocket(); return false; }
     m_IsConnected.store(true, std::memory_order_release);
-    if (!m_Token.empty()) Send("{\"event\":\"auth\",\"token\":\"" + m_Token + "\"}");
-    else m_IsAuthenticated.store(true);
+    if (!m_Token.empty()) {
+        njson auth;
+        auth["event"] = "auth";
+        auth["token"] = m_Token;
+        Send(auth);
+    } else {
+        m_IsAuthenticated.store(true);
+    }
     return true;
 }
 
