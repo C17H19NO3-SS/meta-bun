@@ -5,13 +5,22 @@
 #include <algorithm>
 #include <vector>
 
-#ifndef _WIN32
+#ifdef _WIN32
+    #include <winsock2.h>
+    #include <ws2tcpip.h>
+    static inline int p_recv(SocketType s, char* b, int l) { return ::recv(s, b, l, 0); }
+    static inline int p_send(SocketType s, const char* b, int l) { return ::send(s, b, l, 0); }
+    static inline void p_close(SocketType s) { ::closesocket(s); }
+#else
     #include <sys/socket.h>
     #include <netinet/in.h>
     #include <arpa/inet.h>
     #include <unistd.h>
     #define INVALID_SOCKET (-1)
     #define SOCKET_ERROR   (-1)
+    static inline int p_recv(SocketType s, char* b, int l) { return (int)::recv(s, b, (size_t)l, 0); }
+    static inline int p_send(SocketType s, const char* b, int l) { return (int)::send(s, b, (size_t)l, 0); }
+    static inline void p_close(SocketType s) { ::close(s); }
 #endif
 
 static long long NowMs() {
@@ -20,7 +29,7 @@ static long long NowMs() {
 
 BridgeClient::BridgeClient() : m_Port(0), m_Protocol("ndjson"), m_Socket(INVALID_SOCKET), m_IsConnected(false), m_IsAuthenticated(false), m_ShouldRun(false), m_LatencyMs(-1.0), m_PingIntervalMs(5000) {
 #ifdef _WIN32
-    WSADATA wsaData; WSAStartup(MAKEWORD(2, 2), &wsaData);
+    WSADATA w; WSAStartup(MAKEWORD(2, 2), &w);
 #endif
 }
 
@@ -31,8 +40,8 @@ BridgeClient::~BridgeClient() {
 #endif
 }
 
-bool BridgeClient::Start(const std::string& host, int port, const std::string& token) {
-    m_Host = host; m_Port = port; m_Token = token; m_ShouldRun = true;
+bool BridgeClient::Start(const std::string& h, int p, const std::string& t) {
+    m_Host = h; m_Port = p; m_Token = t; m_ShouldRun = true;
     m_ConnectionThread = std::thread(&BridgeClient::ConnectionLoop, this);
     return true;
 }
@@ -43,47 +52,34 @@ void BridgeClient::Stop() {
     if (m_ReceiveThread.joinable()) m_ReceiveThread.join();
 }
 
-bool BridgeClient::IsConnected() const { return m_IsConnected.load(std::memory_order_relaxed); }
-double BridgeClient::GetLatencyMs() const { return m_LatencyMs.load(std::memory_order_relaxed); }
-void BridgeClient::RegisterCallback(IncomingMessageCallback callback) { m_Callback = std::move(callback); }
-void BridgeClient::SetProtocol(const std::string& protocol) { m_Protocol = protocol; }
+bool BridgeClient::IsConnected() const { return m_IsConnected.load(); }
+double BridgeClient::GetLatencyMs() const { return m_LatencyMs.load(); }
+void BridgeClient::RegisterCallback(IncomingMessageCallback cb) { m_Callback = std::move(cb); }
+void BridgeClient::SetProtocol(const std::string& pr) { m_Protocol = pr; }
 void BridgeClient::SetReconnectCallback(ReconnectCallback cb) { m_ReconnectCallback = std::move(cb); }
 
 bool BridgeClient::Send(const njson& obj) {
-    if (m_Protocol == "length_prefixed_msgpack") {
-        std::vector<uint8_t> msgpack = njson::to_msgpack(obj);
-        return Send(std::string(msgpack.begin(), msgpack.end()));
-    }
-    return Send(obj.dump());
+    std::vector<uint8_t> mp = njson::to_msgpack(obj);
+    return Send(std::string(mp.begin(), mp.end()));
 }
 
-bool BridgeClient::Send(const std::string& rawPayload) {
-    if (!m_IsConnected.load(std::memory_order_relaxed) || m_Socket == INVALID_SOCKET) return false;
+bool BridgeClient::Send(const std::string& raw) {
+    if (!m_IsConnected.load() || m_Socket == INVALID_SOCKET) return false;
     std::lock_guard<std::mutex> lock(m_SendMutex);
-    std::string frame;
-    if (m_Protocol == "ndjson") {
-        frame = rawPayload; if (frame.empty() || frame.back() != '\n') frame += '\n';
-    } else {
-        uint32_t len = static_cast<uint32_t>(rawPayload.size());
-        uint8_t h[4] = { (uint8_t)(len>>24), (uint8_t)(len>>16), (uint8_t)(len>>8), (uint8_t)len };
-        frame = std::string((char*)h, 4) + rawPayload;
-    }
-    const char* p = frame.data(); size_t left = frame.size();
+    uint32_t len = (uint32_t)raw.size();
+    uint8_t h[4] = { (uint8_t)(len>>24), (uint8_t)(len>>16), (uint8_t)(len>>8), (uint8_t)len };
+    std::string f = std::string((char*)h, 4) + raw;
+    const char* d = f.data(); size_t left = f.size();
     while (left > 0) {
-        int s = send(m_Socket, p, (int)left, 0);
+        int s = p_send(m_Socket, d, (int)left);
         if (s == SOCKET_ERROR) { CleanupSocket(); return false; }
-        left -= s; p += s;
+        left -= s; d += s;
     }
     return true;
 }
 
-void BridgeClient::SendPing() {
-    njson j; j["event"] = "ping"; j["timestamp_ms"] = NowMs(); Send(j);
-}
-
-void BridgeClient::HandlePong(long long ts) {
-    double rtt = (double)(NowMs() - ts); if (rtt >= 0) m_LatencyMs.store(rtt);
-}
+void BridgeClient::SendPing() { njson j; j["event"] = "ping"; j["timestamp_ms"] = NowMs(); Send(j); }
+void BridgeClient::HandlePong(long long ts) { double rtt = (double)(NowMs() - ts); if (rtt >= 0) m_LatencyMs.store(rtt); }
 
 void BridgeClient::HandleAuthResponse(const std::string& line) {
     if (line.find("auth_success") != std::string::npos) {
@@ -96,14 +92,7 @@ void BridgeClient::HandleAuthResponse(const std::string& line) {
 
 void BridgeClient::CleanupSocket() {
     m_IsConnected.store(false); m_IsAuthenticated.store(false);
-    if (m_Socket != INVALID_SOCKET) {
-#ifdef _WIN32
-        shutdown(m_Socket, SD_BOTH); closesocket(m_Socket);
-#else
-        shutdown(m_Socket, SHUT_RDWR); close(m_Socket);
-#endif
-        m_Socket = INVALID_SOCKET;
-    }
+    if (m_Socket != INVALID_SOCKET) { p_close(m_Socket); m_Socket = INVALID_SOCKET; }
 }
 
 bool BridgeClient::EstablishConnection() {
@@ -116,14 +105,8 @@ bool BridgeClient::EstablishConnection() {
 #endif
     if (connect(m_Socket, (struct sockaddr*)&addr, sizeof(addr)) == SOCKET_ERROR) { CleanupSocket(); return false; }
     m_IsConnected.store(true, std::memory_order_release);
-    if (!m_Token.empty()) {
-        njson auth;
-        auth["event"] = "auth";
-        auth["token"] = m_Token;
-        Send(auth);
-    } else {
-        m_IsAuthenticated.store(true);
-    }
+    if (!m_Token.empty()) { njson a; a["event"]="auth"; a["token"]=m_Token; Send(a); }
+    else m_IsAuthenticated.store(true);
     return true;
 }
 
@@ -149,28 +132,16 @@ void BridgeClient::ConnectionLoop() {
 void BridgeClient::ReceiveLoop() {
     std::vector<uint8_t> acc; uint8_t buf[65536];
     while (m_ShouldRun.load() && m_IsConnected.load()) {
-        int r = recv(m_Socket, (char*)buf, sizeof(buf), 0);
+        int r = p_recv(m_Socket, (char*)buf, sizeof(buf));
         if (r <= 0) { CleanupSocket(); break; }
         acc.insert(acc.end(), buf, buf + r);
-        if (m_Protocol == "ndjson") {
-            auto it = acc.begin();
-            while (it != acc.end()) {
-                auto nl = std::find(it, acc.end(), '\n');
-                if (nl != acc.end()) {
-                    std::string line(it, nl); it = nl + 1;
-                    if (!line.empty()) { HandleAuthResponse(line); if (m_IsAuthenticated.load() && m_Callback) m_Callback(line); }
-                } else break;
-            }
-            acc.erase(acc.begin(), it);
-        } else {
-            while (acc.size() >= 4) {
-                uint32_t len = (uint32_t(acc[0])<<24) | (uint32_t(acc[1])<<16) | (uint32_t(acc[2])<<8) | uint32_t(acc[3]);
-                if (acc.size() >= 4 + len) {
-                    std::string p((char*)acc.data() + 4, len); acc.erase(acc.begin(), acc.begin() + 4 + len);
-                    if (!m_IsAuthenticated.load()) HandleAuthResponse(p);
-                    if (m_IsAuthenticated.load() && m_Callback) m_Callback(p);
-                } else break;
-            }
+        while (acc.size() >= 4) {
+            uint32_t len = (uint32_t(acc[0])<<24) | (uint32_t(acc[1])<<16) | (uint32_t(acc[2])<<8) | uint32_t(acc[3]);
+            if (acc.size() >= 4 + len) {
+                std::string p((char*)acc.data() + 4, len); acc.erase(acc.begin(), acc.begin() + 4 + len);
+                if (!m_IsAuthenticated.load()) HandleAuthResponse(p);
+                if (m_IsAuthenticated.load() && m_Callback) m_Callback(p);
+            } else break;
         }
     }
 }

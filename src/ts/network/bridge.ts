@@ -11,7 +11,6 @@ import type {
  */
 export class Bridge {
 	private socket: BunSocket | null = null;
-	private protocol: BridgeProtocol = "ndjson";
 
 	/**
 	 * Binds the active TCP socket communication stream.
@@ -44,24 +43,16 @@ export class Bridge {
 		}
 
 		try {
-			if (this.protocol === "ndjson") {
-				this.socket.write(`${JSON.stringify(action)}\n`);
-			} else if (this.protocol === "length_prefixed_json") {
-				const payload = Buffer.from(JSON.stringify(action));
-				const header = Buffer.alloc(4);
-				header.writeUInt32BE(payload.length, 0);
-				this.socket.write(Buffer.concat([header, payload]));
-			} else if (this.protocol === "length_prefixed_msgpack") {
-				const msgpackData = encode(action);
-				const payload = Buffer.from(
-					msgpackData.buffer,
-					msgpackData.byteOffset,
-					msgpackData.byteLength,
-				);
-				const header = Buffer.alloc(4);
-				header.writeUInt32BE(payload.length, 0);
-				this.socket.write(Buffer.concat([header, payload]));
-			}
+			// Enforce length-prefixed msgpack (mandatory)
+			const msgpackData = encode(action);
+			const payload = Buffer.from(
+				msgpackData.buffer,
+				msgpackData.byteOffset,
+				msgpackData.byteLength,
+			);
+			const header = Buffer.alloc(4);
+			header.writeUInt32BE(payload.length, 0);
+			this.socket.write(Buffer.concat([header, payload]));
 		} catch (err) {
 			console.error("[Bridge] Send serialization error:", err);
 		}
