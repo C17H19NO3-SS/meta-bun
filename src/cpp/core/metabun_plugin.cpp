@@ -117,7 +117,7 @@ bool MetaBunPlugin::Load(PluginId id, ISmmAPI *ismm, char *error, size_t maxlen,
     std::string host       = bridgeHostEnv  ? bridgeHostEnv  : "127.0.0.1";
     int         port       = bridgePortEnv  ? std::atoi(bridgePortEnv) : 27013;
     std::string token      = bridgeTokenEnv ? bridgeTokenEnv : "";
-    std::string protocol   = protocolEnv    ? protocolEnv    : "ndjson";
+    std::string protocol   = protocolEnv    ? protocolEnv    : "length_prefixed_msgpack";
     std::string bunBinary  = bunBinaryEnv   ? bunBinaryEnv   : "bun";
     std::string metaBunDir = metaBunDirEnv ? metaBunDirEnv : "";
     if (metaBunDir.empty()) {
@@ -260,10 +260,13 @@ void MetaBunPlugin::HandleIncomingMessage(const std::string& message) {
     if      (action == "say")                HandleActionSay(payload);
     else if (action == "say_to_client")      HandleActionSayToClient(payload);
     else if (action == "command")            HandleActionCommand(payload);
+    else if (action == "client_command")     HandleActionClientCommand(payload);
     else if (action == "print")              HandleActionPrint(payload);
     else if (action == "kick")               HandleActionKick(payload);
     else if (action == "ban")                HandleActionBan(payload);
     else if (action == "menu")               HandleActionMenu(payload);
+    else if (action == "register_command")   HandleActionRegisterCommand(payload);
+    else if (action == "unregister_command") HandleActionUnregisterCommand(payload);
     else if (action == "auth_success")       std::cout << "[MetaBun] Authenticated." << std::endl;
     else if (action == "auth_failed")        std::cerr << "[MetaBun] Auth failed!" << std::endl;
     else if (action == "pong")               {
@@ -531,7 +534,7 @@ void MetaBunPlugin::HandleActionPrint(
         const std::unordered_map<std::string, std::string>& p) {
     auto it = p.find("text");
     if (it != p.end()) {
-        std::cout << it->second << std::endl;
+        std::cout << ColorUtils::FormatConsole(it->second) << std::endl;
     }
 }
 
@@ -672,7 +675,7 @@ void MetaBunPlugin::HandleActionCvarGet(const std::unordered_map<std::string, st
 
 void MetaBunPlugin::HandleActionClientCommand(const std::unordered_map<std::string, std::string>& p) {
     auto cIt = p.find("client");
-    auto cmdIt = p.find("command");
+    auto cmdIt = p.find("cmd");
     if (cIt != p.end() && cmdIt != p.end() && m_pEngineServer) {
         int clientIndex = std::atoi(cIt->second.c_str());
         m_pEngineServer->ClientCommand(clientIndex - 1, (cmdIt->second + "\n").c_str());
@@ -699,11 +702,43 @@ void MetaBunPlugin::HandleActionPong(const std::unordered_map<std::string, std::
 }
 
 void MetaBunPlugin::HandleActionRegisterCommand(const std::unordered_map<std::string, std::string>& p) {
+#ifdef COMPILE_WITH_SOURCE_SDK
+    auto nIt = p.find("name");
+    auto dIt = p.find("description");
+    if (nIt == p.end()) return;
+
+    std::string name = nIt->second;
+    std::string desc = (dIt != p.end()) ? dIt->second : "";
+
+    if (m_ConCommands.find(name) != m_ConCommands.end()) return;
+
+    // Create a new ConCommand on the heap and register it
+    ConCommand* cmd = new ConCommand(name.c_str(), OnCustomConsoleCommand, desc.c_str(), 0);
+    g_SMAPI->RegisterConCommand(g_PLAPI, cmd);
+    m_ConCommands[name] = cmd;
+    
+    std::cout << "[MetaBun] Registered dynamic command: " << name << std::endl;
+#else
     (void)p;
+#endif
 }
 
 void MetaBunPlugin::HandleActionUnregisterCommand(const std::unordered_map<std::string, std::string>& p) {
+#ifdef COMPILE_WITH_SOURCE_SDK
+    auto nIt = p.find("name");
+    if (nIt == p.end()) return;
+
+    std::string name = nIt->second;
+    auto it = m_ConCommands.find(name);
+    if (it != m_ConCommands.end()) {
+        g_SMAPI->UnregisterConCommand(g_PLAPI, it->second);
+        delete it->second;
+        m_ConCommands.erase(it);
+        std::cout << "[MetaBun] Unregistered dynamic command: " << name << std::endl;
+    }
+#else
     (void)p;
+#endif
 }
 
 void MetaBunPlugin::HandleActionSlap(const std::unordered_map<std::string, std::string>& p) {
@@ -958,3 +993,23 @@ void MetaBunPlugin::HandleActionCreateEntity(const std::unordered_map<std::strin
     std::cout << "[MetaBun Mock] CreateEntity: " << className << std::endl;
 #endif
 }
+
+#ifdef COMPILE_WITH_SOURCE_SDK
+void MetaBunPlugin::OnCustomConsoleCommand(const CCommandContext &context, const CCommand &command) {
+    int clientIndex = context.GetPlayerSlot().Get() + 1; // 1-based index (0 is console)
+    std::string cmdName = command.Arg(0);
+    
+    njson j;
+    j["event"] = "ConsoleCommand";
+    j["client"] = clientIndex;
+    j["command"] = cmdName;
+    
+    std::vector<std::string> args;
+    for (int i = 1; i < (int)command.ArgC(); ++i) {
+        args.push_back(command.Arg(i));
+    }
+    j["args"] = args;
+    
+    g_MetaBunPlugin.Send(j);
+}
+#endif

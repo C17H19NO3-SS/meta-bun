@@ -60,21 +60,33 @@ const MenuHandler::Menu* MenuHandler::GetActiveMenu(int client) const {
 
 void MenuHandler::DisplayMenuToClient(int client, const Menu& m) {
     if (!m_pEngineServer) return;
-    std::string tc = (m.type == 1) ? "{Red}" : "{Blue}";
-    m_pEngineServer->ClientCommand(client - 1, ("say " + ColorUtils::FormatColors(tc + "[MetaBun] {White}" + m.title) + "\n").c_str());
-    if (!m.subTitle.empty()) m_pEngineServer->ClientCommand(client - 1, ("say " + ColorUtils::FormatColors("{Grey}" + m.subTitle) + "\n").c_str());
-    m_pEngineServer->ClientCommand(client - 1, "say \x01\x08------------------\n");
+    
+    // Header
+    m_pEngineServer->ClientCommand(client - 1, ("say " + ColorUtils::FormatColors(m.title) + "\n").c_str());
+    if (!m.subTitle.empty()) m_pEngineServer->ClientCommand(client - 1, ("say " + ColorUtils::FormatColors(m.subTitle) + "\n").c_str());
+    
+    m_pEngineServer->ClientCommand(client - 1, "say \x01\x08━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+
+    // Items
     for (size_t i = 0; i < m.items.size(); ++i) {
         if (m.items[i].info == "__none__") continue;
+        
         std::string d = m.items[i].display;
-        size_t dot = d.find(". "); if (dot != std::string::npos && dot < 3) d = d.substr(dot + 2);
+        // Strip leading number if present
+        size_t dot = d.find(". "); 
+        if (dot != std::string::npos && dot < 3) d = d.substr(dot + 2);
+
         std::string ic = "{Green}";
-        if (m.items[i].info == "__back__" || m.items[i].info == "__next__") ic = "{Lime}";
+        if (m.items[i].info == "__back__" || m.items[i].info == "__next__") ic = "{Yellow}";
         else if (m.items[i].info == "__exit__") ic = "{Red}";
+        
         m_pEngineServer->ClientCommand(client - 1, ("say " + ColorUtils::FormatColors(ic + std::to_string(i + 1) + ". {White}" + d) + "\n").c_str());
     }
-    m_pEngineServer->ClientCommand(client - 1, "say \x01\x08------------------\n");
-    if (!m.footer.empty()) m_pEngineServer->ClientCommand(client - 1, ("say " + ColorUtils::FormatColors("{Grey}" + m.footer) + "\n").c_str());
+
+    // Footer
+    if (!m.footer.empty()) {
+        m_pEngineServer->ClientCommand(client - 1, ("say " + ColorUtils::FormatColors(m.footer) + "\n").c_str());
+    }
 }
 
 void MenuHandler::SendMenuSelect(int client, const std::string& menuId, const std::string& info) {

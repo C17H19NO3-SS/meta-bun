@@ -100,13 +100,15 @@ export class MetaBunApp {
 				this.settings = JSON.parse(readFileSync(configPath, "utf-8"));
 				if (this.pluginManager) {
 					this.pluginManager.LogMessage(
-						"Merkezi ayarlar yuklendi: {Green}configs/core/settings.json{Default}",
+						"Merkezi ayarlar yuklendi: configs/core/settings.json",
+						"success",
 					);
 				}
 			} catch (err) {
 				if (this.pluginManager) {
 					this.pluginManager.LogMessage(
-						`{Red}Hata: settings.json yuklenemedi: ${err}`,
+						`Hata: settings.json yuklenemedi: ${err}`,
+						"error",
 					);
 				} else {
 					console.error(`[MetaBun] Error loading settings.json: ${err}`);
@@ -131,14 +133,16 @@ export class MetaBunApp {
 						Bun.env["BRIDGE_TOKEN"] || this.settings.bridge?.token;
 					if (!bridgeToken) {
 						this.pluginManager.LogMessage(
-							"Metamod C++ bridge {Green}baglandi{Default} (Yetki gerekmiyor).",
+							"Metamod C++ bridge baglandi (Yetki gerekmiyor).",
+							"success",
 						);
 						this.authenticatedSockets.add(bunSocket);
 						this.bridge.SetSocket(bunSocket);
 						this.pluginManager.emit("BridgeConnected");
 					} else {
 						this.pluginManager.LogMessage(
-							"Metamod C++ bridge {Green}baglandi{Default}. {Yellow}Yetki bekleniyor...{Default}",
+							"Metamod C++ bridge baglandi. Yetki bekleniyor...",
+							"info",
 						);
 					}
 				},
@@ -169,7 +173,8 @@ export class MetaBunApp {
 										) {
 											if (authPayload.token === bridgeToken) {
 												this.pluginManager.LogMessage(
-													"Metamod C++ bridge {Green}yetkilendirildi{Default}.",
+													"Metamod C++ bridge yetkilendirildi.",
+													"success",
 												);
 												this.authenticatedSockets.add(bunSocket);
 												this.bridge.SetSocket(bunSocket);
@@ -177,7 +182,8 @@ export class MetaBunApp {
 												this.bridge.Send({ action: "auth_success" });
 											} else {
 												this.pluginManager.LogMessage(
-													"{Red}Hata: Bridge yetkilendirme basarisiz. Yanlis token.{Default}",
+													"Bridge yetkilendirme basarisiz. Yanlis token.",
+													"error",
 												);
 												this.bridge.SetSocket(bunSocket);
 												this.bridge.Send({ action: "auth_failed" });
@@ -185,7 +191,8 @@ export class MetaBunApp {
 											}
 										} else {
 											this.pluginManager.LogMessage(
-												"{Red}Hata: Yetkisiz paket alindi. Baglanti kesiliyor...{Default}",
+												"Yetkisiz paket alindi. Baglanti kesiliyor...",
+												"error",
 											);
 											bunSocket.close();
 										}
@@ -194,7 +201,8 @@ export class MetaBunApp {
 									this.HandlePayload(payload);
 								} catch (err) {
 									this.pluginManager.LogMessage(
-										`{Red}Hata: JSON parse hatasi: ${err}`,
+										`JSON parse hatasi: ${err}`,
+										"error",
 									);
 								}
 							}
@@ -228,20 +236,23 @@ export class MetaBunApp {
 										) {
 											if (authPayload.token === bridgeToken) {
 												this.pluginManager.LogMessage(
-													"Metamod C++ bridge {Green}yetkilendirildi{Default}.",
+													"Metamod C++ bridge yetkilendirildi.",
+													"success",
 												);
 												this.authenticatedSockets.add(bunSocket);
 												this.bridge.SetSocket(bunSocket);
 												this.pluginManager.emit("BridgeConnected");
 											} else {
 												this.pluginManager.LogMessage(
-													"{Red}Hata: Bridge yetkilendirme basarisiz. Yanlis token.{Default}",
+													"Bridge yetkilendirme basarisiz. Yanlis token.",
+													"error",
 												);
 												bunSocket.close();
 											}
 										} else {
 											this.pluginManager.LogMessage(
-												"{Red}Hata: Yetkisiz paket alindi. Baglanti kesiliyor...{Default}",
+												"Yetkisiz paket alindi. Baglanti kesiliyor...",
+												"error",
 											);
 											bunSocket.close();
 										}
@@ -251,7 +262,8 @@ export class MetaBunApp {
 									this.HandlePayload(payload);
 								} catch (err) {
 									this.pluginManager.LogMessage(
-										`{Red}Hata: Ikili paket cozme hatasi: ${err}`,
+										`Ikili paket cozme hatasi: ${err}`,
+										"error",
 									);
 								}
 							} else {
@@ -262,22 +274,24 @@ export class MetaBunApp {
 					}
 				},
 				close: (socket: any) => {
-					this.pluginManager.LogMessage(
-						"Metamod C++ bridge {Red}ayrildi{Default}.",
-					);
+					this.pluginManager.LogMessage("Metamod C++ bridge ayrildi.", "error");
 					const bunSocket = socket as BunSocket;
 					this.bridge.SetSocket(null);
 					this.socketBuffers.delete(bunSocket);
 					this.authenticatedSockets.delete(bunSocket);
 				},
 				error: (_socket: any, error: any) => {
-					this.pluginManager.LogMessage(`{Red}Bridge soket hatasi: ${error}`);
+					this.pluginManager.LogMessage(
+						`Bridge soket hatasi: ${error}`,
+						"error",
+					);
 				},
 			},
 		} as any);
 
 		this.pluginManager.LogMessage(
-			`Soket dinleniyor: {Green}port ${this.port}{Default} (Protokol: {Yellow}${this.protocol}{Default})`,
+			`Soket dinleniyor: port ${this.port} (Protokol: ${this.protocol})`,
+			"info",
 		);
 
 		// Start RCON Server
@@ -309,7 +323,8 @@ export class MetaBunApp {
 			},
 		} as any);
 		this.pluginManager.LogMessage(
-			`RCON Sunucusu aktif: {Green}port ${rconPort}{Default}`,
+			`RCON Sunucusu aktif: port ${rconPort}`,
+			"success",
 		);
 
 		await this.pluginManager.LoadAllPlugins();
@@ -345,7 +360,8 @@ export class MetaBunApp {
 			}
 			this.playerManager.AddPlayer(player);
 			this.pluginManager.LogMessage(
-				`Oyuncu bağlandı: {Green}${conn.name}{Default} (ID: ${conn.client}${conn.isBot ? ", BOT" : ""})`,
+				`Oyuncu bağlandı: ${conn.name} (ID: ${conn.client}${conn.isBot ? ", BOT" : ""})`,
+				"success",
 			);
 
 			// Steam Web API lookup
@@ -361,9 +377,6 @@ export class MetaBunApp {
 						const playersList = data.response?.players;
 						if (playersList && playersList.length > 0) {
 							const profile = playersList[0]! as SteamProfile;
-							console.log(
-								`[Steam Web API] Profile found for ${conn.name}: avatar = ${profile.avatar}, realname = ${profile.realname || "N/A"}`,
-							);
 							player.steamProfile = profile;
 						}
 					})
@@ -407,7 +420,8 @@ export class MetaBunApp {
 			const player = this.playerManager.Get(disc.client);
 			if (player) {
 				this.pluginManager.LogMessage(
-					`Oyuncu ayrıldı: {Red}${player.name}{Default} (ID: ${disc.client})`,
+					`Oyuncu ayrıldı: ${player.name} (ID: ${disc.client})`,
+					"error",
 				);
 				const logChannelId =
 					Bun.env["DISCORD_LOG_CHANNEL_ID"] ||
@@ -512,7 +526,7 @@ export class MetaBunApp {
 			this.rconServer.stop();
 			this.rconServer = null;
 		}
-		this.pluginManager.Stop();
+		await this.pluginManager.Stop();
 	}
 
 	/**
@@ -566,7 +580,7 @@ process.on("uncaughtException", (error) => {
 	console.error("[MetaBun App] Uncaught Exception:", error);
 });
 
-// Start the app if this is the main module
+// Start the app if this is the module
 if (import.meta.main) {
 	const app = new MetaBunApp(Number(Bun.env["BRIDGE_PORT"]) || 27013);
 	app.Start();

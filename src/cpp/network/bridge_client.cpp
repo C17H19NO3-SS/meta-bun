@@ -27,7 +27,7 @@ static long long NowMs() {
     return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
 }
 
-BridgeClient::BridgeClient() : m_Port(0), m_Protocol("ndjson"), m_Socket(INVALID_SOCKET), m_IsConnected(false), m_IsAuthenticated(false), m_ShouldRun(false), m_LatencyMs(-1.0), m_PingIntervalMs(5000) {
+BridgeClient::BridgeClient() : m_Port(0), m_Protocol("length_prefixed_msgpack"), m_Socket(INVALID_SOCKET), m_IsConnected(false), m_IsAuthenticated(false), m_ShouldRun(false), m_LatencyMs(-1.0), m_PingIntervalMs(5000) {
 #ifdef _WIN32
     WSADATA w; WSAStartup(MAKEWORD(2, 2), &w);
 #endif

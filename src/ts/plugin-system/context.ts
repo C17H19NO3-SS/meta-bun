@@ -45,6 +45,24 @@ const COLOR_MAP: Record<string, string> = {
 	"{Cyan}": "\x10",
 };
 
+const ANSI_COLOR_MAP: Record<string, string> = {
+	"\x01": "\x1b[0m", // Default (Reset)
+	"\x02": "\x1b[31m", // Red
+	"\x03": "\x1b[91m", // Light Red
+	"\x04": "\x1b[32m", // Green
+	"\x05": "\x1b[92m", // Lime
+	"\x06": "\x1b[92m", // Light Green
+	"\x07": "\x1b[31m", // Dark Red
+	"\x08": "\x1b[90m", // Grey
+	"\x09": "\x1b[93m", // Yellow
+	"\x0A": "\x1b[33m", // Gold
+	"\x0B": "\x1b[34m", // Blue
+	"\x0C": "\x1b[94m", // Dark Blue
+	"\x0E": "\x1b[35m", // Purple
+	"\x0F": "\x1b[95m", // Magenta
+	"\x10": "\x1b[38;5;208m", // Orange/Cyan
+};
+
 /**
  * Format custom chat color tags into game color codes.
  *
@@ -56,6 +74,17 @@ function FormatColorTags(message: string): string {
 		formatted = formatted.replaceAll(tag, code);
 	}
 	return formatted;
+}
+
+/**
+ * Converts game color codes to ANSI escape sequences for terminal display.
+ */
+function ToAnsi(message: string): string {
+	let formatted = message;
+	for (const [code, ansi] of Object.entries(ANSI_COLOR_MAP)) {
+		formatted = formatted.replaceAll(code, ansi);
+	}
+	return `${formatted}\x1b[0m`; // Ensure reset at end
 }
 
 /**
@@ -91,7 +120,7 @@ export class PluginContext implements IGameBridge {
 	 * through the tracked listeners array so it is properly cleaned up on unload.
 	 */
 	constructor(
-		public readonly pluginName: string,
+		public pluginName: string,
 		private pluginManager: IPluginManager,
 		private bridge: Bridge,
 		public readonly players: IPlayerManager,
@@ -181,8 +210,33 @@ export class PluginContext implements IGameBridge {
 		return menu;
 	}
 
-	public LogMessage(message: string): void {
-		console.log(`[${this.pluginName}] ${message}`);
+	public LogMessage(
+		message: string,
+		type: "info" | "success" | "error" | "warn" | "debug" = "info",
+	): void {
+		// Theme Colors
+		const prefix = `{Red}[${this.pluginName}]{Default} `;
+		let typeColor = "{White}";
+
+		switch (type) {
+			case "success":
+				typeColor = "{Green}";
+				break;
+			case "error":
+				typeColor = "{Red}";
+				break;
+			case "warn":
+			case "debug":
+				typeColor = "{Yellow}";
+				break;
+			default:
+				typeColor = "{White}";
+		}
+
+		const fullMessage = `${prefix}${typeColor}${message}`;
+		const formatted = FormatColorTags(fullMessage);
+		const ansiFormatted = ToAnsi(formatted);
+		console.log(ansiFormatted);
 	}
 
 	public PrintToServerConsole(message: string): void {
@@ -706,9 +760,7 @@ export class PluginContext implements IGameBridge {
 	 * - Clears all menu callbacks to prevent memory leaks
 	 */
 	public Cleanup(): void {
-		console.log(
-			`[Plugin Context] Cleaning up resources for: ${this.pluginName}`,
-		);
+		this.LogMessage("Kaynaklar temizleniyor...", "debug");
 
 		// Remove all tracked event listeners
 		for (const { event, callback } of this.listeners) {
@@ -749,5 +801,7 @@ export class PluginContext implements IGameBridge {
 			this.pluginManager.UnregisterAPI(name);
 		}
 		this.registeredAPIs.clear();
+
+		this.LogMessage("Temizlik tamamlandi.", "debug");
 	}
 }

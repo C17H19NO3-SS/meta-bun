@@ -23,12 +23,14 @@ export default class SurfHPReward extends BasePlugin {
 	public override version = "1.0.0";
 	public override author = "MetaBun Team";
 
-	private hpRewardCvar: ConVar;
-	private maxHpCvar: ConVar;
+	private hpRewardCvar!: ConVar;
+	private maxHpCvar!: ConVar;
 	private isActive = false;
 
-	constructor() {
-		super();
+	/**
+	 * Called when the plugin is loaded.
+	 */
+	public override OnLoad(): void {
 		// Register ConVars
 		this.hpRewardCvar = CreateConVar(
 			"sm_surf_hp_reward",
@@ -40,12 +42,7 @@ export default class SurfHPReward extends BasePlugin {
 			"150",
 			"Maximum HP a player can reach via rewards.",
 		);
-	}
 
-	/**
-	 * Called when the plugin is loaded.
-	 */
-	public override OnLoad(): void {
 		this.CheckMap();
 	}
 

@@ -1,6 +1,7 @@
 import { Database } from "bun:sqlite";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { PluginManager } from "../plugin-system/manager";
 
 /**
  * Interface representing player data persisted in the database.
@@ -74,24 +75,26 @@ export class DatabaseManager {
 					const user = Bun.env["DB_USER"] || settings.user || "root";
 					const database =
 						Bun.env["DB_NAME"] || settings.database || "meta_bun";
-					console.log(
-						`[DatabaseManager] Mocking connection to ${this.driver.toUpperCase()} database at ${host}:${port} (DB: ${database}, User: ${user})`,
+					PluginManager.GlobalLog(
+						`Mocking connection to ${this.driver.toUpperCase()} database at ${host}:${port} (DB: ${database}, User: ${user})`,
+						"info",
 					);
 				} else {
-					console.log(`[DatabaseManager] Initialized with SQLite driver.`);
+					PluginManager.GlobalLog("Initialized with SQLite driver.", "success");
 				}
 			} else {
 				this.driver = Bun.env["DB_DRIVER"] || "sqlite";
 				if (this.driver !== "sqlite") {
-					console.log(
-						`[DatabaseManager] Mocking connection to ${this.driver.toUpperCase()} database (from env settings)`,
+					PluginManager.GlobalLog(
+						`Mocking connection to ${this.driver.toUpperCase()} database (from env settings)`,
+						"info",
 					);
 				}
 			}
 		} catch (err) {
-			console.error(
-				"[DatabaseManager] Error loading database config, defaulting to SQLite:",
-				err,
+			PluginManager.GlobalLog(
+				`Error loading database config, defaulting to SQLite: ${err}`,
+				"error",
 			);
 			this.driver = "sqlite";
 		}

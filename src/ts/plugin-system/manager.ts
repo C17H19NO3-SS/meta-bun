@@ -566,7 +566,7 @@ export class PluginManager extends EventEmitter implements IGameBridge {
 			const version = p.version ? ` (${p.version})` : "";
 			this.ReplyToCommand(
 				client,
-				`{Green}[${index.toString().padStart(2, "0")}]{Default} "${p.name}"${version}${author} - ${filename}`,
+				`{Green}[${index.toString().padStart(2, "0")}]{White} "${p.name}"${version}${author} - ${filename}`,
 			);
 			index++;
 		}
@@ -991,19 +991,72 @@ export class PluginManager extends EventEmitter implements IGameBridge {
 		this.consoleFilters.push(filter);
 	}
 
-	public LogMessage(message: string): void {
+	public LogMessage(
+		message: string,
+		type: "info" | "success" | "error" | "warn" | "debug" = "info",
+	): void {
 		let msg: string | null = message;
 		for (const filter of this.consoleFilters) {
 			msg = filter(msg);
 			if (msg === null) return;
 		}
 
-		// Standart framework ön eki ekle (eğer zaten yoksa)
-		const prefix = "{Red}[Meta-Bun] {Default}";
-		const fullMessage = msg.startsWith("[") ? msg : `${prefix}${msg}`;
+		// Theme Colors
+		const prefix = "{Red}[MetaBun]{Default} ";
+		let typeColor = "{White}";
 
-		const ansiFormatted = ToAnsi(fullMessage);
+		switch (type) {
+			case "success":
+				typeColor = "{Green}";
+				break;
+			case "error":
+				typeColor = "{Red}";
+				break;
+			case "warn":
+			case "debug":
+				typeColor = "{Yellow}";
+				break;
+			default:
+				typeColor = "{White}";
+		}
+
+		const fullMessage = msg.startsWith("[")
+			? msg
+			: `${prefix}${typeColor}${msg}`;
+
+		// Önce {Red} gibi etiketleri \x02 gibi kodlara çevir, sonra ANSI'ye çevir
+		const formatted = FormatColorTags(fullMessage);
+		const ansiFormatted = ToAnsi(formatted);
 		console.log(ansiFormatted);
+	}
+
+	/**
+	 * Static helper for global framework logging without needing a manager instance.
+	 */
+	public static GlobalLog(
+		message: string,
+		type: "info" | "success" | "error" | "warn" | "debug" = "info",
+	): void {
+		const prefix = "{Red}[MetaBun]{Default} ";
+		let typeColor = "{White}";
+
+		switch (type) {
+			case "success":
+				typeColor = "{Green}";
+				break;
+			case "error":
+				typeColor = "{Red}";
+				break;
+			case "warn":
+			case "debug":
+				typeColor = "{Yellow}";
+				break;
+			default:
+				typeColor = "{White}";
+		}
+
+		const formatted = FormatColorTags(`${prefix}${typeColor}${message}`);
+		console.log(ToAnsi(formatted));
 	}
 
 	public CreateTimer(
@@ -1507,17 +1560,31 @@ export class PluginManager extends EventEmitter implements IGameBridge {
 			const PluginClass = pluginModule.default;
 			let pluginInstance: IPlugin;
 
+			const tentativeName = nameOrPath.replace(/\.(ts|js)$/, "");
+			const context = new PluginContext(
+				tentativeName,
+				this,
+				this.bridge,
+				this.players,
+				this.adminManager,
+				{
+					RegConsoleCmd: this.RegConsoleCmd.bind(this),
+					UnregConsoleCmd: this.UnregConsoleCmd.bind(this),
+				},
+			);
+
 			if (typeof PluginClass === "function") {
 				// It's a class/constructor
-				pluginInstance = new PluginClass();
+				pluginInstance = await pluginContextStore.run(context, () => {
+					return new PluginClass();
+				});
 			} else if (PluginClass) {
 				// It's a plain object (fallback for existing plugins)
 				pluginInstance = PluginClass;
 			} else {
 				// It's a functional/SourceMod style plugin (no default export)
-				const name = nameOrPath.replace(/\.(ts|js)$/, "");
 				pluginInstance = {
-					name,
+					name: tentativeName,
 					version: "1.0.0",
 					OnLoad: async (game) => {
 						// Automatically bind exported functions as event hook listeners
@@ -1548,27 +1615,15 @@ export class PluginManager extends EventEmitter implements IGameBridge {
 			}
 
 			if (!pluginInstance) {
-				console.error(
-					`[Plugin Manager] Invalid plugin format in ${nameOrPath}`,
-				);
+				this.LogMessage(`Geçersiz eklenti formatı: ${nameOrPath}`, "error");
 				return;
 			}
 
-			const pluginName =
-				pluginInstance.name || nameOrPath.replace(/\.(ts|js)$/, "");
+			const pluginName = pluginInstance.name || tentativeName;
 			const pluginVersion = pluginInstance.version || "1.0.0";
 
-			const context = new PluginContext(
-				pluginName,
-				this,
-				this.bridge,
-				this.players,
-				this.adminManager,
-				{
-					RegConsoleCmd: this.RegConsoleCmd.bind(this),
-					UnregConsoleCmd: this.UnregConsoleCmd.bind(this),
-				},
-			);
+			// Update context with the final plugin name
+			context.pluginName = pluginName;
 
 			// Automatically register decorated commands and event hooks
 			if (typeof PluginClass === "function") {
@@ -1596,9 +1651,6 @@ export class PluginManager extends EventEmitter implements IGameBridge {
 							cmd.flags,
 							cmd.description,
 						);
-						console.log(
-							`[Plugin Manager] Registered decorated command ${cmd.name} to method ${cmd.methodName}`,
-						);
 					}
 				}
 				if (Array.isArray(constructor.__eventHooks)) {
@@ -1608,9 +1660,6 @@ export class PluginManager extends EventEmitter implements IGameBridge {
 								return (pluginInstance as any)[hook.methodName]?.(data);
 							});
 						});
-						console.log(
-							`[Plugin Manager] Hooked decorated event ${hook.eventName} to method ${hook.methodName}`,
-						);
 					}
 				}
 			}
@@ -1637,9 +1686,6 @@ export class PluginManager extends EventEmitter implements IGameBridge {
 								(val as (data: GameEvent) => void).call(pluginInstance, data),
 							);
 						});
-						console.log(
-							`[Plugin Manager] Automatically hooked method ${key} to event: ${eventName}`,
-						);
 					}
 				}
 			}
@@ -1652,13 +1698,14 @@ export class PluginManager extends EventEmitter implements IGameBridge {
 
 			this.loadedPlugins.set(nameOrPath, { plugin: pluginInstance, context });
 
-			this.PrintToServerConsole(
-				`[Plugin Manager] Loaded: ${pluginName} (${pluginVersion}) from ${nameOrPath}`,
+			this.LogMessage(
+				`Eklenti yüklendi: ${pluginName} (${pluginVersion})`,
+				"success",
 			);
 		} catch (error) {
-			console.error(
-				`[Plugin Manager] Failed to load plugin ${nameOrPath}:`,
-				error,
+			this.LogMessage(
+				`Eklenti yükleme hatası (${nameOrPath}): ${error}`,
+				"error",
 			);
 		}
 	}
@@ -1754,11 +1801,28 @@ export class PluginManager extends EventEmitter implements IGameBridge {
 	/**
 	 * Stops the file watcher and cleans up resources.
 	 */
-	public Stop() {
+	public async Stop() {
+		this.LogMessage("Eklenti sistemi kapatiliyor...", "info");
+
+		// Unload all plugins first to ensure clean shutdown
+		const loadedPluginNames = Array.from(this.loadedPlugins.keys());
+		for (const name of loadedPluginNames) {
+			try {
+				await this.UnloadPlugin(name);
+			} catch (e) {
+				console.error(
+					`[Plugin Manager] Error unloading ${name} during stop:`,
+					e,
+				);
+			}
+		}
+
 		if (this.watcher) {
 			this.watcher.close();
 			this.watcher = null;
 		}
+
+		this.LogMessage("Eklenti sistemi durduruldu.", "success");
 	}
 
 	// --- State Retention / Hot-Reload ---

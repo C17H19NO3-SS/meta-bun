@@ -58,12 +58,13 @@ export class Menu implements IMenu {
 		this.lastPage = page;
 
 		let displayItems: MenuItem[] = [];
-		let footer = "";
+		let footerText = "";
 		let menuType = 0;
+
+		const totalPages = Math.ceil(this.items.length / this.itemsPerPage);
 
 		if (this.pagination) {
 			menuType = 2; // Paginated
-			const totalPages = Math.ceil(this.items.length / this.itemsPerPage);
 			if (page < 1) page = 1;
 			if (page > totalPages) page = totalPages;
 
@@ -95,18 +96,23 @@ export class Menu implements IMenu {
 			// Slot 9: Exit (Index 8)
 			displayItems.push({ display: "Çıkış (Exit)", info: "__exit__" });
 
-			footer = `Sayfa ${page} / ${totalPages}`;
+			footerText = `Sayfa ${page} / ${totalPages}`;
 		} else {
 			displayItems = this.items;
 		}
+
+		// Modern and Polished UI Style
+		const styledTitle = `{Red}● {White}${this.title}`;
+		const styledSubtitle = this.subtitle ? `{Grey}${this.subtitle}` : "";
+		const styledFooter = `{Grey}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n${footerText ? `{Yellow}${footerText}\n` : ""}{Red}[MetaBun v1.0]{Default}`;
 
 		this.bridge.Send({
 			action: "menu",
 			client,
 			menu_id: this.id,
-			menu_title: this.title,
-			menu_subtitle: this.subtitle,
-			menu_footer: footer,
+			menu_title: styledTitle,
+			menu_subtitle: styledSubtitle,
+			menu_footer: styledFooter,
 			menu_type: menuType.toString(),
 			menu_items_json: JSON.stringify(displayItems),
 		});

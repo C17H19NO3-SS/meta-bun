@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { PluginManager } from "../plugin-system/manager";
 import type { DatabaseManager } from "../shared/database";
 import type { IAdminManager } from "../shared/types/admin";
 
@@ -52,12 +53,13 @@ export class AdminManager implements IAdminManager {
 						inherit: entry.inherit,
 					});
 				}
-				console.log(
-					`[AdminManager] Loaded ${this.groupsConfig.size} admin groups from config.`,
+				PluginManager.GlobalLog(
+					`Loaded ${this.groupsConfig.size} admin groups from config.`,
+					"success",
 				);
 			}
 		} catch (error) {
-			console.error(`[AdminManager] Error loading admin groups:`, error);
+			PluginManager.GlobalLog(`Error loading admin groups: ${error}`, "error");
 		}
 	}
 
@@ -82,14 +84,18 @@ export class AdminManager implements IAdminManager {
 						this.commandOverrides.set(cmd, flags);
 					}
 				}
-				console.log(
-					`[AdminManager] Loaded ${this.commandOverrides.size} command overrides from config.`,
+				PluginManager.GlobalLog(
+					`Loaded ${this.commandOverrides.size} command overrides from config.`,
+					"success",
 				);
 			}
 		} catch (error) {
 			// Do not log error if file doesn't exist, it's optional
 			if (error instanceof Error && (error as any).code !== "ENOENT") {
-				console.error(`[AdminManager] Error loading command overrides:`, error);
+				PluginManager.GlobalLog(
+					`Error loading command overrides: ${error}`,
+					"error",
+				);
 			}
 		}
 	}
@@ -148,14 +154,15 @@ export class AdminManager implements IAdminManager {
 						}
 					}
 				}
-				console.log(
-					`[AdminManager] Loaded ${this.adminFlags.size} admins from config.`,
+				PluginManager.GlobalLog(
+					`Loaded ${this.adminFlags.size} admins from config.`,
+					"success",
 				);
 			} else {
-				console.warn(`[AdminManager] Config file not found: ${configPath}`);
+				PluginManager.GlobalLog(`Config file not found: ${configPath}`, "warn");
 			}
 		} catch (error) {
-			console.error(`[AdminManager] Error loading admins:`, error);
+			PluginManager.GlobalLog(`Error loading admins: ${error}`, "error");
 		}
 
 		// Load from Database if active
@@ -187,13 +194,14 @@ export class AdminManager implements IAdminManager {
 						this.adminExpiresAt.set(row.steamid, row.expires_at);
 					}
 				}
-				console.log(
-					`[AdminManager] Loaded ${dbAdmins.length} admins from SQLite database.`,
+				PluginManager.GlobalLog(
+					`Loaded ${dbAdmins.length} admins from SQLite database.`,
+					"success",
 				);
 			} catch (error) {
-				console.error(
-					`[AdminManager] Error loading admins from database:`,
-					error,
+				PluginManager.GlobalLog(
+					`Error loading admins from database: ${error}`,
+					"error",
 				);
 			}
 		}
@@ -478,6 +486,6 @@ export class AdminManager implements IAdminManager {
 	 */
 	public ReloadAdmins(): void {
 		this.LoadAdmins();
-		console.log(`[AdminManager] Admin configuration reloaded.`);
+		PluginManager.GlobalLog("Admin configuration reloaded.", "success");
 	}
 }

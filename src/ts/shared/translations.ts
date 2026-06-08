@@ -14,7 +14,8 @@ export class TranslationManager {
 	 */
 	public LoadLanguage(lang: string): void {
 		try {
-			const path = join(process.cwd(), "translations", `${lang}.json`);
+			const base = (this as any).baseDir || join(process.cwd(), "translations");
+			const path = join(base, `${lang}.json`);
 			if (existsSync(path)) {
 				const content = readFileSync(path, "utf-8");
 				this.translations.set(lang, JSON.parse(content));

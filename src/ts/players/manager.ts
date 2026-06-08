@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { BanManager } from "../admins/bans";
 import type { Bridge } from "../network/bridge";
+import { PluginManager } from "../plugin-system/manager";
 import { DatabaseManager } from "../shared/database";
 import type { IAdminManager } from "../shared/types/admin";
 import { Team } from "../shared/types/enums";
@@ -44,7 +45,10 @@ export class PlayerManager implements IPlayerManager {
 				this.reservedSlotsConfig = JSON.parse(content);
 			}
 		} catch (e) {
-			console.error("[PlayerManager] Error loading reserved_slots.json:", e);
+			PluginManager.GlobalLog(
+				`Error loading reserved_slots.json: ${e}`,
+				"error",
+			);
 		}
 	}
 
@@ -80,8 +84,9 @@ export class PlayerManager implements IPlayerManager {
 		// Guard: if this slot is already occupied (e.g. rapid reconnect), clean up first
 		const existing = this.players.get(player.index);
 		if (existing) {
-			console.warn(
-				`[PlayerManager] Slot ${player.index} already occupied by ${existing.name}. Removing before adding ${player.name}.`,
+			PluginManager.GlobalLog(
+				`Slot ${player.index} already occupied by ${existing.name}. Removing before adding ${player.name}.`,
+				"warn",
 			);
 			this.RemovePlayer(player.index);
 		}
