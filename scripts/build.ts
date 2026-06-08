@@ -171,20 +171,61 @@ RUN apt-get update && apt-get install -y \\
 		);
 	}
 
-	// 5. Copy the Plugin SDK so plugins can resolve "meta-bun/core" at runtime.
+	// 5. Copy the Plugin SDK (keeping only what's necessary for runtime resolution)
 	const metaBunDistDir = path.join(distAddonsDir, "meta-bun");
 	const sdkDestDir = path.join(metaBunDistDir, "sdk");
 	const sharedDestDir = path.join(metaBunDistDir, "shared");
 
 	console.log(
-		"[Build Script] Copying Plugin SDK (natives + shared) to dist...",
+		"[Build Script] Copying Plugin SDK (compiled files only) to dist...",
 	);
+
+	// Create directories
+	fs.mkdirSync(sdkDestDir, { recursive: true });
+	fs.mkdirSync(sharedDestDir, { recursive: true });
+
+	// Instead of copying everything, we only copy the necessary types and logic
+	// or ideally, we should bundle the SDK as well if plugins will import it.
+	// For now, let's copy and then prune .ts files if they are not needed.
 	fs.cpSync(path.join(rootDir, "src/ts/natives"), sdkDestDir, {
 		recursive: true,
 	});
 	fs.cpSync(path.join(rootDir, "src/ts/shared"), sharedDestDir, {
 		recursive: true,
 	});
+
+	// PRUNE: Remove uncompiled source files from the dist directory to keep it clean.
+	// We keep .d.ts files for IntelliSense if needed, but remove raw .ts implementations
+	// that have been bundled into index.js.
+	const pruneExtensions = [".ts", ".tsx"];
+	const keepFiles = [
+		"index.ts",
+		"core.ts",
+		"player.ts",
+		"console.ts",
+		"events.ts",
+		"timers.ts",
+		"menus.ts",
+	]; // Public API entry points
+
+	const pruneDir = (dir: string) => {
+		const files = fs.readdirSync(dir);
+		for (const file of files) {
+			const fullPath = path.join(dir, file);
+			if (fs.statSync(fullPath).isDirectory()) {
+				pruneDir(fullPath);
+			} else {
+				const ext = path.extname(file);
+				if (pruneExtensions.includes(ext) && !keepFiles.includes(file)) {
+					fs.unlinkSync(fullPath);
+				}
+			}
+		}
+	};
+
+	// Prune the SDK and shared directories in dist to keep only types or public entry points
+	pruneDir(sdkDestDir);
+	pruneDir(sharedDestDir);
 
 	// Overwrite context-store.ts with the globalThis shim
 	const ctxStoreShim = `import { AsyncLocalStorage } from "node:async_hooks";
