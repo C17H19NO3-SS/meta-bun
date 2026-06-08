@@ -221,7 +221,7 @@ RUN apt-get update && apt-get install -y \\
 						outdir: pluginOutDir,
 						target: "bun",
 						minify: true,
-						external: ["meta-bun", "meta-bun/*", "@meta-bun/core"], // Framework is external
+						// Do not mark framework as external so it's bundled in
 					});
 
 					if (!pluginBuild.success) {
