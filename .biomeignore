@@ -2,3 +2,4 @@ dist
 node_modules
 src/cpp/build
 sdks
+configs/core/geoip.json
