@@ -230,10 +230,18 @@ RUN apt-get update && apt-get install -y \\
 						);
 						for (const log of pluginBuild.logs) console.error(log);
 					} else {
-						// Also copy package.json of the plugin if it exists
-						const pkgJson = path.join(pluginPath, "package.json");
-						if (fs.existsSync(pkgJson)) {
-							fs.copyFileSync(pkgJson, path.join(pluginOutDir, "package.json"));
+						// Also copy and rewrite package.json of the plugin if it exists
+						const pkgJsonPath = path.join(pluginPath, "package.json");
+						if (fs.existsSync(pkgJsonPath)) {
+							const pkg = JSON.parse(fs.readFileSync(pkgJsonPath, "utf8"));
+							pkg.main = "index.js";
+							pkg.module = "index.js";
+							pkg.types = "index.ts"; // Keep types reference if needed for other plugins
+							fs.writeFileSync(
+								path.join(pluginOutDir, "package.json"),
+								JSON.stringify(pkg, null, 2),
+								"utf8",
+							);
 						}
 					}
 				}
