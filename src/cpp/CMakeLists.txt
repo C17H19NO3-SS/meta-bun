@@ -64,6 +64,7 @@ include_directories(${INCLUDE_DIRS})
 set(SOURCES
     # Core
     core/metabun_plugin.cpp
+    core/schema_manager.cpp
 
     # Network — C++ → Bun TCP köprüsü
     network/bridge_client.cpp
