@@ -5,6 +5,9 @@
 #include <unordered_map>
 #include <chrono>
 #include <functional>
+#include <nlohmann/json.hpp>
+
+using njson = nlohmann::json;
 
 class BridgeClient;
 
@@ -95,11 +98,6 @@ private:
      * Verilen oyuncunun stats'ını JSON'a dönüştürüp Bun'a gönderir.
      */
     void SendStats(const PlayerStats& stats, float engineTime);
-
-    /**
-     * PlayerStats struct'ından NDJSON payload üretir.
-     */
-    std::string BuildPayload(const PlayerStats& stats, float engineTime, int maxClients) const;
 
     BridgeClient*       m_pBridge;
     StatsFetchCallback  m_FetchCallback;

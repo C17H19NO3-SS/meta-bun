@@ -211,8 +211,8 @@ void MetaBunPlugin::OnBridgeReconnect() {
     for (const auto& ev : hookedEvents) {
         std::ostringstream ss;
         ss << "{\"action\":\"hook_event\",\"event\":\""
-           << json::EscapeString(ev) << "\"}\n";
-        m_Bridge.Send(ss.str());
+           << json_utils::EscapeString(ev) << "\"}\n";
+        Send(njson::parse(ss.str()));
     }
 
     std::cout << "[MetaBun Plugin] Re-registered " << hookedEvents.size()
@@ -221,14 +221,36 @@ void MetaBunPlugin::OnBridgeReconnect() {
 
 // ─── Incoming Message Dispatcher ─────────────────────────────────────────────
 
+void MetaBunPlugin::Send(const njson& obj) {
+    m_Bridge.Send(obj);
+}
+
 void MetaBunPlugin::HandleIncomingMessage(const std::string& message) {
-    auto payload = json::ParseFlatJSON(message);
-    auto actionIt = payload.find("action");
-    if (actionIt == payload.end()) {
+    njson j;
+    try {
+        if (m_Bridge.GetProtocol() == "length_prefixed_msgpack") {
+            std::vector<uint8_t> msgpack(message.begin(), message.end());
+            j = njson::from_msgpack(msgpack);
+        } else {
+            j = njson::parse(message);
+        }
+    } catch (const std::exception& e) {
+        std::cerr << "[MetaBun Plugin] Failed to decode incoming message: " << e.what() << std::endl;
         return;
     }
 
-    const std::string& action = actionIt->second;
+    if (!j.is_object() || !j.contains("action")) return;
+    
+    std::unordered_map<std::string, std::string> payload;
+    for (auto& el : j.items()) {
+        if (el.value().is_string()) {
+            payload[el.key()] = el.value().get<std::string>();
+        } else {
+            payload[el.key()] = el.value().dump();
+        }
+    }
+
+    const std::string& action = payload["action"];
 
     if      (action == "say")                HandleActionSay(payload);
     else if (action == "say_to_client")      HandleActionSayToClient(payload);
@@ -292,12 +314,12 @@ void MetaBunPlugin::OnGameFrame() {
 }
 
 bool MetaBunPlugin::OnClientConnect(int clientIndex,
-                                    const std::string& name,
-                                    const std::string& steamId,
+                                    const char *name,
+                                    const char *steamId,
                                     int userId,
                                     bool isBot,
-                                    const std::string& ip,
-                                    const std::string& language) {
+                                    const char *ip,
+                                    const char *language) {
     m_PlayerStats.TrackPlayer(clientIndex);
     return m_SdkHooks.OnClientConnect(clientIndex, name, steamId, userId, isBot, ip, language);
 }
@@ -434,7 +456,7 @@ void MetaBunPlugin::OnRoundStart(int timelimit, int fraglimit) {
     std::ostringstream ss;
     ss << "{\"event\":\"RoundStart\",\"timelimit\":" << timelimit
        << ",\"fraglimit\":" << fraglimit << "}\n";
-    m_Bridge.Send(ss.str());
+    Send(njson::parse(ss.str()));
 }
 
 void MetaBunPlugin::OnRoundEnd(int winner, int reason) {
@@ -442,31 +464,31 @@ void MetaBunPlugin::OnRoundEnd(int winner, int reason) {
     std::ostringstream ss;
     ss << "{\"event\":\"RoundEnd\",\"winner\":" << winner
        << ",\"reason\":" << reason << "}\n";
-    m_Bridge.Send(ss.str());
+    Send(njson::parse(ss.str()));
 }
 
 void MetaBunPlugin::OnBombPlanted(int clientIndex, const std::string& site) {
     if (!m_EventManager.IsHooked("BombPlanted") || !m_Bridge.IsConnected()) return;
     std::ostringstream ss;
     ss << "{\"event\":\"BombPlanted\",\"client\":" << clientIndex
-       << ",\"site\":\"" << json::EscapeString(site) << "\"}\n";
-    m_Bridge.Send(ss.str());
+       << ",\"site\":\"" << json_utils::EscapeString(site) << "\"}\n";
+    Send(njson::parse(ss.str()));
 }
 
 void MetaBunPlugin::OnBombDefused(int clientIndex, const std::string& site) {
     if (!m_EventManager.IsHooked("BombDefused") || !m_Bridge.IsConnected()) return;
     std::ostringstream ss;
     ss << "{\"event\":\"BombDefused\",\"client\":" << clientIndex
-       << ",\"site\":\"" << json::EscapeString(site) << "\"}\n";
-    m_Bridge.Send(ss.str());
+       << ",\"site\":\"" << json_utils::EscapeString(site) << "\"}\n";
+    Send(njson::parse(ss.str()));
 }
 
 void MetaBunPlugin::OnBombExploded(int clientIndex, const std::string& site) {
     if (!m_EventManager.IsHooked("BombExploded") || !m_Bridge.IsConnected()) return;
     std::ostringstream ss;
     ss << "{\"event\":\"BombExploded\",\"client\":" << clientIndex
-       << ",\"site\":\"" << json::EscapeString(site) << "\"}\n";
-    m_Bridge.Send(ss.str());
+       << ",\"site\":\"" << json_utils::EscapeString(site) << "\"}\n";
+    Send(njson::parse(ss.str()));
 }
 
 void MetaBunPlugin::OnHostageRescued(int clientIndex, int hostageIndex) {
@@ -474,36 +496,36 @@ void MetaBunPlugin::OnHostageRescued(int clientIndex, int hostageIndex) {
     std::ostringstream ss;
     ss << "{\"event\":\"HostageRescued\",\"client\":" << clientIndex
        << ",\"hostage\":" << hostageIndex << "}\n";
-    m_Bridge.Send(ss.str());
+    Send(njson::parse(ss.str()));
 }
 
 void MetaBunPlugin::OnItemPickup(int clientIndex, const std::string& item) {
     if (!m_EventManager.IsHooked("ItemPickup") || !m_Bridge.IsConnected()) return;
     std::ostringstream ss;
     ss << "{\"event\":\"ItemPickup\",\"client\":" << clientIndex
-       << ",\"item\":\"" << json::EscapeString(item) << "\"}\n";
-    m_Bridge.Send(ss.str());
+       << ",\"item\":\"" << json_utils::EscapeString(item) << "\"}\n";
+    Send(njson::parse(ss.str()));
 }
 
 void MetaBunPlugin::OnWeaponFire(int clientIndex, const std::string& weapon) {
     if (!m_EventManager.IsHooked("WeaponFire") || !m_Bridge.IsConnected()) return;
     std::ostringstream ss;
     ss << "{\"event\":\"WeaponFire\",\"client\":" << clientIndex
-       << ",\"weapon\":\"" << json::EscapeString(weapon) << "\"}\n";
-    m_Bridge.Send(ss.str());
+       << ",\"weapon\":\"" << json_utils::EscapeString(weapon) << "\"}\n";
+    Send(njson::parse(ss.str()));
 }
 
 void MetaBunPlugin::OnMapStart(const std::string& mapName) {
     if (!m_Bridge.IsConnected()) return;
     std::ostringstream ss;
     ss << "{\"event\":\"MapStart\",\"mapName\":\""
-       << json::EscapeString(mapName) << "\"}\n";
-    m_Bridge.Send(ss.str());
+       << json_utils::EscapeString(mapName) << "\"}\n";
+    Send(njson::parse(ss.str()));
 }
 
 void MetaBunPlugin::OnMapEnd() {
     if (!m_Bridge.IsConnected()) return;
-    m_Bridge.Send("{\"event\":\"MapEnd\"}\n");
+    m_Bridge.Send(std::string("{\"event\":\"MapEnd\"}\n"));
 }
 
 // ─── Action Handlers ──────────────────────────────────────────────────────────
@@ -602,7 +624,7 @@ void MetaBunPlugin::HandleActionMenu(
 
     std::vector<MenuHandler::MenuItem> items;
     if (itemsIt != p.end()) {
-        auto parsed = json::ParseMenuItemsJSON(itemsIt->second);
+        auto parsed = json_utils::ParseMenuItemsJSON(itemsIt->second);
         for (const auto& mi : parsed) {
             MenuHandler::MenuItem item;
             item.display = mi.display;
@@ -703,10 +725,10 @@ void MetaBunPlugin::HandleActionCvarGet(
 
     std::ostringstream ss;
     ss << "{\"event\":\"ConVarValue\","
-       << "\"name\":\""       << json::EscapeString(nIt->second) << "\","
-       << "\"value\":\""      << json::EscapeString(value)        << "\","
-       << "\"requestId\":\"" << json::EscapeString(reqId)         << "\"}\n";
-    m_Bridge.Send(ss.str());
+       << "\"name\":\""       << json_utils::EscapeString(nIt->second) << "\","
+       << "\"value\":\""      << json_utils::EscapeString(value)        << "\","
+       << "\"requestId\":\"" << json_utils::EscapeString(reqId)         << "\"}\n";
+    Send(njson::parse(ss.str()));
 }
 
 void MetaBunPlugin::HandleActionClientCommand(
@@ -766,7 +788,7 @@ void MetaBunPlugin::HandleActionForcedObserver(
     if (cIt == p.end() || !m_pEngineServer) return;
 
     int client = std::atoi(cIt->second.c_str());
-    bool forced = (fIt != p.end()) ? json::ParseBool(fIt->second) : true;
+    bool forced = (fIt != p.end()) ? json_utils::ParseBool(fIt->second) : true;
 
     // CS2 SDK: CCSPlayerController::ForceToSpectate(forced)
     // Fallback: team 1 (spectator) olarak değiştir
@@ -785,7 +807,7 @@ void MetaBunPlugin::HandleActionForcedObserver(
         ss << "{\"event\":\"ForcedObserverSet\","
            << "\"client\":" << client << ","
            << "\"forced\":"  << (forced ? "true" : "false") << "}\n";
-        m_Bridge.Send(ss.str());
+        Send(njson::parse(ss.str()));
     }
 }
 
@@ -793,13 +815,13 @@ void MetaBunPlugin::HandleActionPong(
         const std::unordered_map<std::string, std::string>& p) {
     auto tsIt = p.find("timestamp_ms");
     if (tsIt != p.end()) {
-        long long sentTs = json::ParseTimestampMs(tsIt->second);
+        long long sentTs = json_utils::ParseTimestampMs(tsIt->second);
         m_Bridge.HandlePong(sentTs);
         double latency = m_Bridge.GetLatencyMs();
         // std::cout << "[MetaBun Plugin] Bridge latency: " << latency << " ms" << std::endl;
         std::stringstream ss;
         ss << "{\"event\":\"BridgeLatencyUpdate\",\"latency\":" << latency << "}\n";
-        m_Bridge.Send(ss.str());
+        Send(njson::parse(ss.str()));
     }
 }
 
@@ -856,15 +878,15 @@ void MetaBunPlugin::OnCustomConsoleCommand(const CCommandContext &context, const
 
     std::ostringstream ss;
     ss << "{\"event\":\"ConsoleCommand\",\"client\":" << clientIndex
-       << ",\"command\":\"" << json::EscapeString(command.Arg(0)) << "\",\"args\":[";
+       << ",\"command\":\"" << json_utils::EscapeString(command.Arg(0)) << "\",\"args\":[";
 
     for (int i = 1; i < command.ArgC(); ++i) {
         if (i > 1) ss << ",";
-        ss << "\"" << json::EscapeString(command.Arg(i)) << "\"";
+        ss << "\"" << json_utils::EscapeString(command.Arg(i)) << "\"";
     }
     ss << "]}\n";
 
-    g_MetaBunPlugin.m_Bridge.Send(ss.str());
+    g_MetaBunPlugin.Send(njson::parse(ss.str()));
 }
 #endif
 
@@ -1043,7 +1065,7 @@ void MetaBunPlugin::HandleActionPlaySound(const std::unordered_map<std::string, 
     float volume = (vIt != p.end()) ? std::stof(vIt->second) : 1.0f;
     int channel = (chIt != p.end()) ? std::atoi(chIt->second.c_str()) : 0;
     int pitch = (pIt != p.end()) ? std::atoi(pIt->second.c_str()) : 100;
-    bool all = (aIt != p.end()) ? json::ParseBool(aIt->second) : false;
+    bool all = (aIt != p.end()) ? json_utils::ParseBool(aIt->second) : false;
     int client = (cIt != p.end()) ? std::atoi(cIt->second.c_str()) : 0;
 
 #ifdef COMPILE_WITH_SOURCE_SDK

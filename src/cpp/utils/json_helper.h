@@ -6,7 +6,7 @@
 #include <sstream>
 #include <vector>
 
-namespace json {
+namespace json_utils {
 
 /**
  * JSON string içindeki özel karakterleri escape eder.

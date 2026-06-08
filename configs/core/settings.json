@@ -2,7 +2,7 @@
 	"bridge": {
 		"port": 27013,
 		"token": "",
-		"protocol": "ndjson"
+		"protocol": "length_prefixed_msgpack"
 	},
 	"rcon": {
 		"port": 27023,

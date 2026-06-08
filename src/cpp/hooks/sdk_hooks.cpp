@@ -2,296 +2,110 @@
 #include "../network/bridge_client.h"
 #include "../utils/json_helper.h"
 #include <iostream>
-#include <sstream>
+#include <nlohmann/json.hpp>
 
-// ---------------------------------------------------------------------------
-// Ctor / Dtor
-// ---------------------------------------------------------------------------
+using njson = nlohmann::json;
 
 SDKHooks::SDKHooks() : m_pBridge(nullptr) {}
-
 SDKHooks::~SDKHooks() {}
 
-// ---------------------------------------------------------------------------
-// Initialize
-// ---------------------------------------------------------------------------
-
-void SDKHooks::Initialize(BridgeClient* bridge) {
-    m_pBridge = bridge;
-}
-
-// ---------------------------------------------------------------------------
-// HookSDK / UnhookSDK
-// ---------------------------------------------------------------------------
+void SDKHooks::Initialize(BridgeClient* bridge) { m_pBridge = bridge; }
 
 void SDKHooks::HookSDK(int client, int hookType) {
     m_ActiveSDKHooks[client].insert(hookType);
-    std::cout << "[MetaBun Hooks] Registered SDK Hook " << hookType
-              << " for client " << client << std::endl;
 }
 
 void SDKHooks::UnhookSDK(int client, int hookType) {
     auto it = m_ActiveSDKHooks.find(client);
     if (it != m_ActiveSDKHooks.end()) {
         it->second.erase(hookType);
-        if (it->second.empty()) {
-            m_ActiveSDKHooks.erase(it);
-        }
-        std::cout << "[MetaBun Hooks] Unregistered SDK Hook " << hookType
-                  << " for client " << client << std::endl;
+        if (it->second.empty()) m_ActiveSDKHooks.erase(it);
     }
 }
 
-// ---------------------------------------------------------------------------
-// OnGameFrame
-// ---------------------------------------------------------------------------
+void SDKHooks::OnGameFrame() {}
 
-void SDKHooks::OnGameFrame() {
-    if (!m_pBridge || !m_pBridge->IsConnected()) return;
-    // Frame başına yapılacak işler buraya eklenebilir.
-}
-
-// ---------------------------------------------------------------------------
-// OnClientConnect
-// ---------------------------------------------------------------------------
-
-bool SDKHooks::OnClientConnect(int clientIndex, const std::string& name,
-                                const std::string& steamId, int userId,
-                                bool isBot, const std::string& ip,
-                                const std::string& language) {
+bool SDKHooks::OnClientConnect(int clientIndex, const char* name, const char* steamId, int userId, bool isBot, const char* ip, const char* language) {
     if (!m_pBridge || !m_pBridge->IsConnected()) return true;
-
-    std::ostringstream ss;
-    ss << "{\"event\":\"PlayerConnect\","
-       << "\"client\":"  << clientIndex                          << ","
-       << "\"name\":\""  << json::EscapeString(name)            << "\","
-       << "\"steamid\":\"" << json::EscapeString(steamId)       << "\","
-       << "\"userid\":"  << userId                               << ","
-       << "\"isBot\":"   << (isBot ? "true" : "false");
-
-    // ip yalnızca doluysa JSON'a eklenir
-    if (!ip.empty()) {
-        ss << ",\"ip\":\"" << json::EscapeString(ip) << "\"";
-    }
-
-    // language her zaman eklenir
-    ss << ",\"language\":\"" << json::EscapeString(language) << "\"";
-
-    ss << "}\n";
-
-    m_pBridge->Send(ss.str());
+    njson j;
+    j["event"] = "PlayerConnect"; j["client"] = clientIndex; j["name"] = name; j["steamid"] = steamId;
+    j["userid"] = userId; j["isBot"] = isBot; if (ip && *ip) j["ip"] = ip; j["language"] = language;
+    m_pBridge->Send(j);
     return true;
 }
 
-// ---------------------------------------------------------------------------
-// OnClientDisconnect
-// ---------------------------------------------------------------------------
-
 void SDKHooks::OnClientDisconnect(int clientIndex, const std::string& reason) {
     if (!m_pBridge || !m_pBridge->IsConnected()) return;
-
-    std::ostringstream ss;
-    ss << "{\"event\":\"PlayerDisconnect\","
-       << "\"client\":"  << clientIndex                      << ","
-       << "\"reason\":\"" << json::EscapeString(reason) << "\"}\n";
-
-    m_pBridge->Send(ss.str());
+    njson j; j["event"] = "PlayerDisconnect"; j["client"] = clientIndex; j["reason"] = reason;
+    m_pBridge->Send(j);
 }
-
-// ---------------------------------------------------------------------------
-// OnPlayerChat
-// ---------------------------------------------------------------------------
-
-void SDKHooks::OnPlayerChat(int clientIndex, const std::string& text) {
-    if (!m_pBridge || !m_pBridge->IsConnected()) return;
-
-    std::ostringstream ss;
-    ss << "{\"event\":\"PlayerChat\","
-       << "\"client\":" << clientIndex                  << ","
-       << "\"text\":\"" << json::EscapeString(text) << "\"}\n";
-
-    m_pBridge->Send(ss.str());
-}
-
-// ---------------------------------------------------------------------------
-// OnPlayerSpawn
-// ---------------------------------------------------------------------------
-
-void SDKHooks::OnPlayerSpawn(int clientIndex, int team) {
-    if (!m_pBridge || !m_pBridge->IsConnected()) return;
-
-    std::ostringstream ss;
-    ss << "{\"event\":\"PlayerSpawn\","
-       << "\"client\":" << clientIndex << ","
-       << "\"team\":"   << team        << "}\n";
-
-    m_pBridge->Send(ss.str());
-}
-
-// ---------------------------------------------------------------------------
-// OnPlayerDeath
-// ---------------------------------------------------------------------------
-
-void SDKHooks::OnPlayerDeath(int victimIndex, int attackerIndex,
-                              int assisterIndex, bool headshot,
-                              const std::string& weapon) {
-    if (!m_pBridge || !m_pBridge->IsConnected()) return;
-
-    std::ostringstream ss;
-    ss << "{\"event\":\"PlayerDeath\","
-       << "\"client\":"   << victimIndex                        << ","
-       << "\"attacker\":" << attackerIndex;
-
-    // assisterIndex == -1 ise alan hiç eklenmez
-    if (assisterIndex >= 0) {
-        ss << ",\"assister\":" << assisterIndex;
-    }
-
-    ss << ",\"headshot\":" << (headshot ? "true" : "false")
-       << ",\"weapon\":\"" << json::EscapeString(weapon) << "\"}\n";
-
-    m_pBridge->Send(ss.str());
-}
-
-// ---------------------------------------------------------------------------
-// OnWeaponChange
-// ---------------------------------------------------------------------------
-
-void SDKHooks::OnWeaponChange(int clientIndex, const std::string& weaponName) {
-    if (!m_pBridge || !m_pBridge->IsConnected()) return;
-
-    std::ostringstream ss;
-    ss << "{\"event\":\"WeaponChange\","
-       << "\"client\":"   << clientIndex                             << ","
-       << "\"weapon\":\"" << json::EscapeString(weaponName) << "\"}\n";
-
-    m_pBridge->Send(ss.str());
-}
-
-// ---------------------------------------------------------------------------
-// OnPlayerStatsUpdate
-// ---------------------------------------------------------------------------
-
-void SDKHooks::OnPlayerStatsUpdate(int clientIndex, int health, int armor,
-                                    int money, int team, bool isAlive,
-                                    float x, float y, float z,
-                                    float ax, float ay, float az,
-                                    float vx, float vy, float vz,
-                                    bool isObserver, int observerTarget,
-                                    int entityFlags, int ping) {
-    if (!m_pBridge || !m_pBridge->IsConnected()) return;
-
-    std::ostringstream ss;
-    ss << "{\"event\":\"PlayerStatsUpdate\","
-       << "\"client\":"         << clientIndex                          << ","
-       << "\"health\":"         << health                               << ","
-       << "\"armor\":"          << armor                                << ","
-       << "\"money\":"          << money                                << ","
-       << "\"team\":"           << team                                 << ","
-       << "\"isAlive\":"        << (isAlive ? "true" : "false")        << ","
-       << "\"pos\":{"
-           << "\"x\":"          << x                                    << ","
-           << "\"y\":"          << y                                    << ","
-           << "\"z\":"          << z
-       << "},"
-       << "\"ang\":{"
-           << "\"x\":"          << ax                                   << ","
-           << "\"y\":"          << ay                                   << ","
-           << "\"z\":"          << az
-       << "},"
-       << "\"vel\":{"
-           << "\"x\":"          << vx                                   << ","
-           << "\"y\":"          << vy                                   << ","
-           << "\"z\":"          << vz
-       << "},"
-       << "\"isObserver\":"     << (isObserver ? "true" : "false")     << ","
-       << "\"observerTarget\":" << observerTarget                       << ","
-       << "\"entityFlags\":"    << entityFlags                          << ","
-       << "\"ping\":"           << ping
-       << "}\n";
-
-    m_pBridge->Send(ss.str());
-}
-
-// ---------------------------------------------------------------------------
-// OnTakeDamage
-// ---------------------------------------------------------------------------
-
-int SDKHooks::OnTakeDamage(int victim, int attacker, float damage,
-                            int damageType, int weaponEntity) {
-    return TriggerSDKHook(victim, 1, victim, attacker, damage, damageType, weaponEntity);
-}
-
-int SDKHooks::WeaponCanUse(int client, int weaponEntity) {
-    return TriggerSDKHook(client, 2, client, weaponEntity);
-}
-
-int SDKHooks::TraceAttack(int victim, int attacker, float damage, int damageType, int weaponEntity) {
-    return TriggerSDKHook(victim, 3, victim, attacker, damage, damageType, weaponEntity);
-}
-
-int SDKHooks::PreThink(int client) {
-    return TriggerSDKHook(client, 4, client);
-}
-
-int SDKHooks::PostThink(int client) {
-    return TriggerSDKHook(client, 5, client);
-}
-
-int SDKHooks::OnEntityCreated(int entity) {
-    return TriggerSDKHook(0, 6, entity);
-}
-
-int SDKHooks::OnEntityDeleted(int entity) {
-    return TriggerSDKHook(0, 7, entity);
-}
-
-int SDKHooks::Touch(int entity, int other) {
-    return TriggerSDKHook(entity, 8, entity, other);
-}
-
-int SDKHooks::TriggerSDKHook(int client, int hookType, ...) {
-    // Önce önbellekten (one-shot) karar var mı kontrol et
-    int decisionKey = client * 100 + hookType;
-    auto decIt = m_SDKHookDecisions.find(decisionKey);
-    if (decIt != m_SDKHookDecisions.end() && decIt->second != 0) {
-        int decision = decIt->second;
-        m_SDKHookDecisions.erase(decIt); // one-shot
-        return decision;
-    }
-
-    if (!m_pBridge || !m_pBridge->IsConnected()) return 0;
-
-    auto hookIt = m_ActiveSDKHooks.find(client);
-    if (hookIt != m_ActiveSDKHooks.end() && hookIt->second.count(hookType)) {
-        std::ostringstream ss;
-        ss << "{\"event\":\"SDKHook_Trigger\","
-           << "\"client\":"   << client   << ","
-           << "\"type\":"     << hookType << "}\n";
-        m_pBridge->Send(ss.str());
-    }
-
-    return 0;
-}
-
-// ---------------------------------------------------------------------------
-// SetSDKHookDecision
-// ---------------------------------------------------------------------------
-
-void SDKHooks::SetSDKHookDecision(int client, int hookType, int decision) {
-    m_SDKHookDecisions[client * 100 + hookType] = decision;
-}
-
-// ---------------------------------------------------------------------------
-// OnClientPostAdminCheck
-// ---------------------------------------------------------------------------
 
 void SDKHooks::OnClientPostAdminCheck(int clientIndex) {
     if (!m_pBridge || !m_pBridge->IsConnected()) return;
+    njson j; j["event"] = "OnClientPostAdminCheck"; j["client"] = clientIndex;
+    m_pBridge->Send(j);
+}
 
-    std::ostringstream ss;
-    ss << "{\"event\":\"OnClientPostAdminCheck\","
-       << "\"client\":" << clientIndex << "}\n";
+void SDKHooks::OnPlayerChat(int clientIndex, const std::string& text) {
+    if (!m_pBridge || !m_pBridge->IsConnected()) return;
+    njson j; j["event"] = "PlayerChat"; j["client"] = clientIndex; j["text"] = text;
+    m_pBridge->Send(j);
+}
 
-    m_pBridge->Send(ss.str());
+void SDKHooks::OnPlayerSpawn(int clientIndex, int team) {
+    if (!m_pBridge || !m_pBridge->IsConnected()) return;
+    njson j; j["event"] = "PlayerSpawn"; j["client"] = clientIndex; j["team"] = team;
+    m_pBridge->Send(j);
+}
+
+void SDKHooks::OnPlayerDeath(int victimIndex, int attackerIndex, int assisterIndex, bool headshot, const std::string& weapon) {
+    if (!m_pBridge || !m_pBridge->IsConnected()) return;
+    njson j;
+    j["event"] = "PlayerDeath"; j["client"] = victimIndex; j["attacker"] = attackerIndex;
+    if (assisterIndex >= 0) j["assister"] = assisterIndex;
+    j["headshot"] = headshot; j["weapon"] = weapon;
+    m_pBridge->Send(j);
+}
+
+void SDKHooks::OnWeaponChange(int clientIndex, const std::string& weaponName) {
+    if (!m_pBridge || !m_pBridge->IsConnected()) return;
+    njson j; j["event"] = "WeaponChange"; j["client"] = clientIndex; j["weapon"] = weaponName;
+    m_pBridge->Send(j);
+}
+
+void SDKHooks::OnPlayerStatsUpdate(int clientIndex, int health, int armor, int money, int team, bool isAlive, float x, float y, float z, float ax, float ay, float az, float vx, float vy, float vz, bool isObserver, int observerTarget, int entityFlags, int ping) {
+    if (!m_pBridge || !m_pBridge->IsConnected()) return;
+    njson j;
+    j["event"] = "PlayerStatsUpdate"; j["client"] = clientIndex; j["health"] = health; j["armor"] = armor;
+    j["money"] = money; j["team"] = team; j["isAlive"] = isAlive;
+    j["pos"] = { {"x", x}, {"y", y}, {"z", z} };
+    j["ang"] = { {"x", ax}, {"y", ay}, {"z", az} };
+    j["vel"] = { {"x", vx}, {"y", vy}, {"z", vz} };
+    j["isObserver"] = isObserver; j["observerTarget"] = observerTarget; j["entityFlags"] = entityFlags; j["ping"] = ping;
+    m_pBridge->Send(j);
+}
+
+int SDKHooks::OnTakeDamage(int victim, int attacker, float damage, int damageType, int weaponEntity) { return TriggerSDKHook(victim, 1, victim, attacker, damage, damageType, weaponEntity); }
+int SDKHooks::WeaponCanUse(int client, int weaponEntity) { return TriggerSDKHook(client, 2, client, weaponEntity); }
+int SDKHooks::TraceAttack(int victim, int attacker, float damage, int damageType, int weaponEntity) { return TriggerSDKHook(victim, 3, victim, attacker, damage, damageType, weaponEntity); }
+int SDKHooks::PreThink(int client) { return TriggerSDKHook(client, 4, client); }
+int SDKHooks::PostThink(int client) { return TriggerSDKHook(client, 5, client); }
+int SDKHooks::OnEntityCreated(int entity) { return TriggerSDKHook(0, 6, entity); }
+int SDKHooks::OnEntityDeleted(int entity) { return TriggerSDKHook(0, 7, entity); }
+int SDKHooks::Touch(int entity, int other) { return TriggerSDKHook(entity, 8, entity, other); }
+
+int SDKHooks::TriggerSDKHook(int client, int hookType, ...) {
+    int key = client * 100 + hookType;
+    if (m_SDKHookDecisions.count(key) && m_SDKHookDecisions[key] != 0) {
+        int d = m_SDKHookDecisions[key]; m_SDKHookDecisions.erase(key); return d;
+    }
+    if (m_pBridge && m_pBridge->IsConnected() && m_ActiveSDKHooks[client].count(hookType)) {
+        njson j; j["event"] = "SDKHook_Trigger"; j["client"] = client; j["type"] = hookType;
+        m_pBridge->Send(j);
+    }
+    return 0;
+}
+
+void SDKHooks::SetSDKHookDecision(int client, int hookType, int decision) {
+    m_SDKHookDecisions[client * 100 + hookType] = decision;
 }

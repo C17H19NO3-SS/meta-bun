@@ -53,7 +53,7 @@ async function main() {
 
 	// 2. Compile C++ Plugin inside a persistent Docker builder container for speed and GLIBC 2.36 compatibility
 	try {
-		const builderImage = "metabun-builder:latest";
+		const builderImage = "metabun-builder:v2";
 
 		// Check if the builder image exists
 		let imageExists = false;
@@ -81,6 +81,7 @@ RUN apt-get update && apt-get install -y \\
     cmake \\
     libprotobuf-dev \\
     protobuf-compiler \\
+    nlohmann-json3-dev \\
     && rm -rf /var/lib/apt/lists/*
 `;
 			fs.writeFileSync(
