@@ -188,13 +188,56 @@ RUN apt-get update && apt-get install -y \\
 		`[Build Script] Generated Metamod VDF loader at: ${path.join(metamodDir, "metabun.vdf")}`,
 	);
 
-	// 7. Copy configs, plugins (compiled only), translations
-	for (const dir of ["configs", "plugins", "translations"]) {
+	// 7. Copy configs, translations
+	for (const dir of ["configs", "translations"]) {
 		const srcPath = path.join(rootDir, dir);
 		const destPath = path.join(metaBunDistDir, dir);
 		if (fs.existsSync(srcPath)) {
 			console.log(`[Build Script] Copying directory: ${dir}`);
 			fs.cpSync(srcPath, destPath, { recursive: true });
+		}
+	}
+
+	// 7.1. Compile and Copy Plugins
+	const pluginsSrcDir = path.join(rootDir, "plugins");
+	const pluginsDestDir = path.join(metaBunDistDir, "plugins");
+	fs.mkdirSync(pluginsDestDir, { recursive: true });
+
+	if (fs.existsSync(pluginsSrcDir)) {
+		const plugins = fs.readdirSync(pluginsSrcDir);
+		for (const pluginName of plugins) {
+			const pluginPath = path.join(pluginsSrcDir, pluginName);
+			if (fs.statSync(pluginPath).isDirectory()) {
+				console.log(`[Build Script] Compiling plugin: ${pluginName}`);
+
+				// Find entry point (index.ts or main file)
+				const entryPoint = path.join(pluginPath, "index.ts");
+				if (fs.existsSync(entryPoint)) {
+					const pluginOutDir = path.join(pluginsDestDir, pluginName);
+					fs.mkdirSync(pluginOutDir, { recursive: true });
+
+					const pluginBuild = await Bun.build({
+						entrypoints: [entryPoint],
+						outdir: pluginOutDir,
+						target: "bun",
+						minify: true,
+						external: ["meta-bun", "meta-bun/*", "@meta-bun/core"], // Framework is external
+					});
+
+					if (!pluginBuild.success) {
+						console.error(
+							`[Build Script] Failed to compile plugin: ${pluginName}`,
+						);
+						for (const log of pluginBuild.logs) console.error(log);
+					} else {
+						// Also copy package.json of the plugin if it exists
+						const pkgJson = path.join(pluginPath, "package.json");
+						if (fs.existsSync(pkgJson)) {
+							fs.copyFileSync(pkgJson, path.join(pluginOutDir, "package.json"));
+						}
+					}
+				}
+			}
 		}
 	}
 
