@@ -240,18 +240,25 @@ RUN apt-get update && apt-get install -y \\
 	const pkgPath = path.join(rootDir, "package.json");
 	if (fs.existsSync(pkgPath)) {
 		const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
+		pkg.name = "meta-bun"; // Simplified name for easier resolution
 		pkg.main = "index.js";
 		delete pkg.scripts;
 		delete pkg.devDependencies;
-		// Add an import map to allow plugins to find @meta-bun/core
-		pkg.imports = {
-			"@meta-bun/core": "./sdk/core.js",
+		delete pkg.peerDependencies;
+
+		// Map meta-bun/core and others to bundled files
+		pkg.exports = {
+			"./core": "./sdk/core.js",
+			"./sdk/*": "./sdk/*.js",
+			"./shared/*": "./shared/*.js",
 		};
+
 		fs.writeFileSync(
 			path.join(metaBunDistDir, "package.json"),
 			JSON.stringify(pkg, null, 2),
 			"utf8",
 		);
+		console.log("[Build Script] Wrote minimal package.json with exports.");
 	}
 
 	// 10. Final pruning
@@ -275,6 +282,24 @@ RUN apt-get update && apt-get install -y \\
 		}
 	};
 	finalPrune(metaBunDistDir);
+
+	// 11. Create a node_modules/meta-bun link to allow plugins to resolve the framework
+	const nodeModulesDir = path.join(metaBunDistDir, "node_modules");
+	if (!fs.existsSync(nodeModulesDir)) {
+		fs.mkdirSync(nodeModulesDir, { recursive: true });
+	}
+	const metaBunLink = path.join(nodeModulesDir, "meta-bun");
+	if (!fs.existsSync(metaBunLink)) {
+		try {
+			// Symlink to the parent directory so Bun finds our package.json and exports
+			fs.symlinkSync("..", metaBunLink, "dir");
+			console.log("[Build Script] Created node_modules/meta-bun symlink.");
+		} catch (e) {
+			console.warn(
+				"[Build Script] Warning: Could not create symlink, plugins might fail to resolve framework.",
+			);
+		}
+	}
 
 	console.log("\n========================================================");
 	console.log("[Build Script] ✅ BUILD COMPLETED SUCCESSFULLY!");
