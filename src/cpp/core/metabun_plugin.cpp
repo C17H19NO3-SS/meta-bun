@@ -81,7 +81,16 @@ bool MetaBunPlugin::Load(PluginId id, ISmmAPI *ismm, char *error, size_t maxlen,
 
 #ifdef COMPILE_WITH_SOURCE_SDK
     GET_V_IFACE_CURRENT(GetEngineFactory, m_pEngineServer, IVEngineServer, INTERFACEVERSION_VENGINESERVER);
-    GET_V_IFACE_ANY(GetServerFactory, m_pServerTools, IServerTools, VSERVERTOOLS_INTERFACE_VERSION);
+    
+    // Try multiple versions of ServerTools as Valve often increments these
+    m_pServerTools = (IServerTools*)ismm->VInterfaceMatch(ismm->GetServerFactory(), "VSERVERTOOLS003", 0);
+    if (!m_pServerTools) m_pServerTools = (IServerTools*)ismm->VInterfaceMatch(ismm->GetServerFactory(), "VSERVERTOOLS002", 0);
+    if (!m_pServerTools) m_pServerTools = (IServerTools*)ismm->VInterfaceMatch(ismm->GetServerFactory(), "VSERVERTOOLS001", 0);
+    
+    if (!m_pServerTools) {
+        std::cerr << "[MetaBun] Warning: Could not find IServerTools (tried 001-003). Entity spawning will use fallback commands." << std::endl;
+    }
+
     GET_V_IFACE_ANY(GetEngineFactory, g_pSchemaSystem, ISchemaSystem, SCHEMASYSTEM_INTERFACE_VERSION);
     GET_V_IFACE_CURRENT(GetEngineFactory, g_pCVar, ICvar, CVAR_INTERFACE_VERSION);
 
