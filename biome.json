@@ -5,9 +5,6 @@
 		"clientKind": "git",
 		"useIgnoreFile": true
 	},
-	"files": {
-		"includes": ["**", "!!**/dist"]
-	},
 	"formatter": {
 		"enabled": true,
 		"indentStyle": "tab"
@@ -17,7 +14,8 @@
 		"rules": {
 			"recommended": true,
 			"complexity": {
-				"noStaticOnlyClass": "off"
+				"noStaticOnlyClass": "off",
+				"useLiteralKeys": "off"
 			},
 			"suspicious": {
 				"noExplicitAny": "off",

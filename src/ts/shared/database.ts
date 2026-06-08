@@ -62,18 +62,18 @@ export class DatabaseManager {
 			if (existsSync(configPath)) {
 				const content = readFileSync(configPath, "utf-8");
 				const config = JSON.parse(content);
-				this.driver = process.env.DB_DRIVER || config.driver || "sqlite";
+				this.driver = process.env["DB_DRIVER"] || config.driver || "sqlite";
 
 				if (this.driver === "mysql" || this.driver === "postgres") {
 					const settings = config[this.driver] || {};
-					const host = process.env.DB_HOST || settings.host || "127.0.0.1";
+					const host = process.env["DB_HOST"] || settings.host || "127.0.0.1";
 					const port =
-						process.env.DB_PORT ||
+						process.env["DB_PORT"] ||
 						settings.port ||
 						(this.driver === "mysql" ? 3306 : 5432);
-					const user = process.env.DB_USER || settings.user || "root";
+					const user = process.env["DB_USER"] || settings.user || "root";
 					const database =
-						process.env.DB_NAME || settings.database || "meta_bun";
+						process.env["DB_NAME"] || settings.database || "meta_bun";
 					console.log(
 						`[DatabaseManager] Mocking connection to ${this.driver.toUpperCase()} database at ${host}:${port} (DB: ${database}, User: ${user})`,
 					);
@@ -81,7 +81,7 @@ export class DatabaseManager {
 					console.log(`[DatabaseManager] Initialized with SQLite driver.`);
 				}
 			} else {
-				this.driver = process.env.DB_DRIVER || "sqlite";
+				this.driver = process.env["DB_DRIVER"] || "sqlite";
 				if (this.driver !== "sqlite") {
 					console.log(
 						`[DatabaseManager] Mocking connection to ${this.driver.toUpperCase()} database (from env settings)`,

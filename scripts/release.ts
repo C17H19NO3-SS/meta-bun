@@ -1,7 +1,6 @@
 import { spawn } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import packageJson from "../package.json";
 
 async function run(cmd: string, args: string[], cwd?: string): Promise<string> {
 	return new Promise((resolve, reject) => {
@@ -27,7 +26,7 @@ async function run(cmd: string, args: string[], cwd?: string): Promise<string> {
 async function checkDependencies() {
 	try {
 		await run("gh", ["--version"]);
-	} catch (e) {
+	} catch (_e) {
 		console.error(
 			"\x1b[31mError: GitHub CLI (gh) is not installed or not in PATH.\x1b[0m",
 		);
@@ -39,7 +38,7 @@ async function checkDependencies() {
 
 	try {
 		await run("zip", ["--version"]);
-	} catch (e) {
+	} catch (_e) {
 		console.error("\x1b[31mError: 'zip' command is not installed.\x1b[0m");
 		console.error("Please install zip (e.g., apt install zip).");
 		process.exit(1);
@@ -74,7 +73,7 @@ async function main() {
 		const pkgPath = join(process.cwd(), "package.json");
 		const pkgContent = JSON.parse(readFileSync(pkgPath, "utf-8"));
 		pkgContent.version = versionNumber;
-		writeFileSync(pkgPath, JSON.stringify(pkgContent, null, 2) + "\n");
+		writeFileSync(pkgPath, `${JSON.stringify(pkgContent, null, 2)}\n`);
 		await run("bunx", ["@biomejs/biome", "format", "--write", "package.json"]);
 
 		// 2. Build the project

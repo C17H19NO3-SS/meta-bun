@@ -88,7 +88,9 @@ export class MetaBunApp {
 		);
 
 		this.protocol =
-			process.env.BRIDGE_PROTOCOL || this.settings.bridge?.protocol || "ndjson";
+			process.env["BRIDGE_PROTOCOL"] ||
+			this.settings.bridge?.protocol ||
+			"ndjson";
 		this.bridge.SetProtocol(this.protocol as BridgeProtocol);
 	}
 
@@ -121,7 +123,7 @@ export class MetaBunApp {
 					const bunSocket = socket as BunSocket;
 					this.socketBuffers.set(bunSocket, Buffer.alloc(0));
 					const bridgeToken =
-						process.env.BRIDGE_TOKEN || this.settings.bridge?.token;
+						process.env["BRIDGE_TOKEN"] || this.settings.bridge?.token;
 					if (!bridgeToken) {
 						this.pluginManager.LogMessage(
 							"Metamod C++ bridge {Green}baglandi{Default} (Yetki gerekmiyor).",
@@ -140,7 +142,7 @@ export class MetaBunApp {
 					let buffer = this.socketBuffers.get(bunSocket) || Buffer.alloc(0);
 					buffer = Buffer.concat([buffer, data]);
 					const bridgeToken =
-						process.env.BRIDGE_TOKEN || this.settings.bridge?.token;
+						process.env["BRIDGE_TOKEN"] || this.settings.bridge?.token;
 
 					if (this.protocol === "ndjson") {
 						let newlineIndex;
@@ -278,7 +280,7 @@ export class MetaBunApp {
 
 		// Start RCON Server
 		const rconPort =
-			Number(process.env.RCON_PORT) ||
+			Number(process.env["RCON_PORT"]) ||
 			this.settings.rcon?.port ||
 			this.port + 10;
 		this.rconServer = Bun.listen<unknown>({
@@ -290,7 +292,7 @@ export class MetaBunApp {
 					const str = data.toString("utf-8").trim();
 					const parts = str.split(" ");
 					const rconPass =
-						process.env.RCON_PASSWORD ||
+						process.env["RCON_PASSWORD"] ||
 						this.settings.rcon?.password ||
 						"meta-bun-rcon";
 					if (parts[0] === rconPass) {
@@ -347,7 +349,7 @@ export class MetaBunApp {
 			// Steam Web API lookup
 			const steam64 = SteamIdTo64(conn.steamid);
 			const steamApiKey =
-				process.env.STEAM_API_KEY || this.settings.steam_api_key;
+				process.env["STEAM_API_KEY"] || this.settings.steam_api_key;
 			if (steam64 && steamApiKey) {
 				fetch(
 					`https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/?key=${steamApiKey}&steamids=${steam64}`,
@@ -373,7 +375,7 @@ export class MetaBunApp {
 
 			// Discord Webhook logging
 			const logChannelId =
-				process.env.DISCORD_LOG_CHANNEL_ID ||
+				process.env["DISCORD_LOG_CHANNEL_ID"] ||
 				this.settings.discord?.log_channel_id;
 			if (logChannelId) {
 				const discordPayload = {
@@ -406,7 +408,7 @@ export class MetaBunApp {
 					`Oyuncu ayrıldı: {Red}${player.name}{Default} (ID: ${disc.client})`,
 				);
 				const logChannelId =
-					process.env.DISCORD_LOG_CHANNEL_ID ||
+					process.env["DISCORD_LOG_CHANNEL_ID"] ||
 					this.settings.discord?.log_channel_id;
 				if (logChannelId) {
 					const discordPayload = {
@@ -564,6 +566,6 @@ process.on("uncaughtException", (error) => {
 
 // Start the app if this is the main module
 if (import.meta.main) {
-	const app = new MetaBunApp(Number(process.env.BRIDGE_PORT) || 27013);
+	const app = new MetaBunApp(Number(process.env["BRIDGE_PORT"]) || 27013);
 	app.Start();
 }

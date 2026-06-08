@@ -94,7 +94,7 @@ export class BanManager {
 		});
 
 		const logChannelId =
-			process.env.DISCORD_LOG_CHANNEL_ID ||
+			process.env["DISCORD_LOG_CHANNEL_ID"] ||
 			this.settings?.discord?.log_channel_id;
 		if (logChannelId) {
 			const durationText = duration === 0 ? "Kalıcı" : `${duration} dakika`;

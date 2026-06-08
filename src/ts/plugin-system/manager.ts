@@ -802,7 +802,7 @@ export class PluginManager extends EventEmitter implements IGameBridge {
 						const lastCalled =
 							this.playerCommandTimestamps.get(chatData.client) || 0;
 						if (
-							process.env.NODE_ENV !== "test" &&
+							process.env["NODE_ENV"] !== "test" &&
 							chatData.client !== 0 &&
 							now - lastCalled < 1000
 						) {

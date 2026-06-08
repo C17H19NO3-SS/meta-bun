@@ -28,3 +28,4 @@ logs/*.log
 
 # Project specific
 mmsource-*.tar.gz
+sdks/

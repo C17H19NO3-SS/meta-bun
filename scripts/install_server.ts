@@ -11,7 +11,7 @@ import { join } from "node:path";
 
 const REPO = "C17H19NO3-SS/meta-bun";
 const NPM_PACKAGE = "@meta-bun/core";
-const INSTALL_PATH = process.env.CS2_PATH || "/server/game/csgo";
+const INSTALL_PATH = process.env["CS2_PATH"] || "/server/game/csgo";
 
 // ... (existing code)
 
