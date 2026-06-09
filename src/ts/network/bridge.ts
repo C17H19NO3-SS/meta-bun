@@ -11,6 +11,8 @@ import type {
  */
 export class Bridge {
 	private socket: BunSocket | null = null;
+	private protocol: BridgeProtocol = "ndjson";
+	private debug = false;
 
 	/**
 	 * Binds the active TCP socket communication stream.
@@ -31,6 +33,15 @@ export class Bridge {
 	}
 
 	/**
+	 * Toggles debug mode for logging all outgoing bridge traffic.
+	 *
+	 * @param enabled True to enable logging.
+	 */
+	public EnableDebug(enabled: boolean): void {
+		this.debug = enabled;
+	}
+
+	/**
 	 * Sends a structured GameAction payload to the C++ Metamod bridge using
 	 * the active protocol framing.
 	 *
@@ -40,6 +51,10 @@ export class Bridge {
 		if (!this.socket) {
 			console.warn("[Bridge] Cannot send, socket not connected.");
 			return;
+		}
+
+		if (this.debug) {
+			console.log(`[Bridge Debug] Sent: ${JSON.stringify(action)}`);
 		}
 
 		try {
