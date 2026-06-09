@@ -15,6 +15,10 @@ bool MetaBunBridge::Load(PluginId id, ISmmAPI *ismm, char *error, size_t maxlen,
 {
 	PLUGIN_SAVEVARS();
 
+	GET_V_IFACE_CURRENT(GetEngineFactory, engine, IVEngineServer, INTERFACEVERSION_VENGINESERVER);
+
+	SH_ADD_HOOK(IVEngineServer, ClientCommand, engine, SH_MEMBER(this, &MetaBunBridge::Hook_ClientCommand), false);
+
 	m_Socket = -1;
 	m_Connected = false;
 	m_ShouldExit = false;
@@ -26,6 +30,8 @@ bool MetaBunBridge::Load(PluginId id, ISmmAPI *ismm, char *error, size_t maxlen,
 
 bool MetaBunBridge::Unload(char *error, size_t maxlen)
 {
+	SH_REMOVE_HOOK(IVEngineServer, ClientCommand, engine, SH_MEMBER(this, &MetaBunBridge::Hook_ClientCommand), false);
+
 	m_ShouldExit = true;
 	Disconnect();
 	if (m_ReceiveThread.joinable())
@@ -34,6 +40,99 @@ bool MetaBunBridge::Unload(char *error, size_t maxlen)
 	}
 	return true;
 }
+
+void MetaBunBridge::Hook_ClientCommand(edict_t *pEntity)
+{
+	if (!m_Connected)
+	{
+		RETURN_META(MRES_IGNORED);
+	}
+
+	int client = ismm->IndexOfEdict(pEntity);
+	const char *cmd = engine->Cmd_Argv(0);
+	const char *args = engine->Cmd_Args();
+
+	bool isSay = strcmp(cmd, "say") == 0;
+	bool isSayTeam = strcmp(cmd, "say_team") == 0;
+
+	if (isSay || isSayTeam)
+	{
+		// Format as msgpack: {"event": "PlayerChat", "client": client, "text": args, "team_only": bool}
+		std::vector<uint8_t> buffer;
+		buffer.push_back(0x84); // map with 4 elements
+
+		// "event" -> "PlayerChat"
+		buffer.push_back(0xa5);
+		const char *kEvent = "event";
+		for (int i = 0; i < 5; i++) buffer.push_back(kEvent[i]);
+		const char *vEvent = "PlayerChat";
+		buffer.push_back(0xaa);
+		for (int i = 0; i < 10; i++) buffer.push_back(vEvent[i]);
+
+		// "client" -> int
+		buffer.push_back(0xa6);
+		const char *kClient = "client";
+		for (int i = 0; i < 6; i++) buffer.push_back(kClient[i]);
+		buffer.push_back((uint8_t)client);
+
+		// "text" -> string (args)
+		buffer.push_back(0xa4);
+		const char *kText = "text";
+		for (int i = 0; i < 4; i++) buffer.push_back(kText[i]);
+		size_t argsLen = strlen(args);
+		if (argsLen < 32) buffer.push_back(0xa0 | (uint8_t)argsLen);
+		else { buffer.push_back(0xd9); buffer.push_back((uint8_t)argsLen); }
+		for (size_t i = 0; i < argsLen; i++) buffer.push_back(args[i]);
+
+		// "team_only" -> bool
+		buffer.push_back(0xa9);
+		const char *kTeam = "team_only";
+		for (int i = 0; i < 9; i++) buffer.push_back(kTeam[i]);
+		buffer.push_back(isSayTeam ? 0xc3 : 0xc2);
+
+		Send(buffer.data(), buffer.size());
+	}
+
+	// Format as msgpack: {"event": "PlayerCommand", "client": client, "cmd": cmd, "args": args}
+	std::vector<uint8_t> buffer;
+	buffer.push_back(0x84); // map with 4 elements
+
+	// "event" -> "PlayerCommand"
+	buffer.push_back(0xa5);
+	const char *kEvent = "event";
+	for (int i = 0; i < 5; i++) buffer.push_back(kEvent[i]);
+	const char *vEvent = "PlayerCommand";
+	buffer.push_back(0xad);
+	for (int i = 0; i < 13; i++) buffer.push_back(vEvent[i]);
+
+	// "client" -> int
+	buffer.push_back(0xa6);
+	const char *kClient = "client";
+	for (int i = 0; i < 6; i++) buffer.push_back(kClient[i]);
+	buffer.push_back((uint8_t)client); // Assuming index < 127
+
+	// "cmd" -> string
+	buffer.push_back(0xa3);
+	const char *kCmd = "cmd";
+	for (int i = 0; i < 3; i++) buffer.push_back(kCmd[i]);
+	size_t cmdLen = strlen(cmd);
+	buffer.push_back(0xa0 | (uint8_t)cmdLen);
+	for (size_t i = 0; i < cmdLen; i++) buffer.push_back(cmd[i]);
+
+	// "args" -> string
+	buffer.push_back(0xa4);
+	const char *kArgs = "args";
+	for (int i = 0; i < 4; i++) buffer.push_back(kArgs[i]);
+	size_t argsLen = strlen(args);
+	if (argsLen < 32) buffer.push_back(0xa0 | (uint8_t)argsLen);
+	else { buffer.push_back(0xd9); buffer.push_back((uint8_t)argsLen); }
+	for (size_t i = 0; i < argsLen; i++) buffer.push_back(args[i]);
+
+	Send(buffer.data(), buffer.size());
+
+	RETURN_META(MRES_IGNORED);
+}
+
 
 void MetaBunBridge::AllPluginsLoaded()
 {

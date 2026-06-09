@@ -40,6 +40,8 @@ export interface PlayerChatEvent extends GameEvent {
 	event: "PlayerChat";
 	client: number;
 	text: string;
+	/** Whether the message was sent to team-only chat. */
+	team_only: boolean;
 }
 
 /**
@@ -58,6 +60,10 @@ export interface PlayerConnectEvent extends GameEvent {
 	 * Optional — not all bridge implementations send this field.
 	 */
 	language?: string;
+	/**
+	 * IP address of the connecting player.
+	 */
+	ip?: string;
 }
 
 /**
