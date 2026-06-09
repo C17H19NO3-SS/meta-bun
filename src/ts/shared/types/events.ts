@@ -20,6 +20,7 @@ export interface EventMap {
 	MapStart: MapStartEvent;
 	MapEnd: MapEndEvent;
 	GameFrame: GameFrameEvent;
+	ConsoleCommand: ConsoleCommandEvent;
 	ping: PingEvent;
 	BridgeLatencyUpdate: BridgeLatencyUpdateEvent;
 	auth: AuthEvent;
@@ -31,6 +32,16 @@ export interface EventMap {
 export interface GameEvent {
 	event: string;
 	[key: string]: string | number | boolean | undefined;
+}
+
+/**
+ * Emitted when a player sends a console command.
+ */
+export interface ConsoleCommandEvent extends GameEvent {
+	event: "ConsoleCommand";
+	client: number;
+	command: string;
+	args: string;
 }
 
 /**
