@@ -274,8 +274,68 @@ void MetaBunBridge::ReceiveThread()
 
 void MetaBunBridge::ProcessMessage(const uint8_t *data, uint32_t size)
 {
-	// TODO: Handle commands from Bun
-	printf("[METABUN] Received message of size %u\n", size);
+	if (size < 1) return;
+
+	uint32_t offset = 0;
+	uint8_t type = data[offset++];
+
+	// Expecting a map (fixmap 0x80-0x8f)
+	if ((type & 0xf0) == 0x80) {
+		uint8_t mapSize = type & 0x0f;
+		std::string action = "";
+		std::string cmd = "";
+
+		for (uint8_t i = 0; i < mapSize; i++) {
+			if (offset >= size) break;
+
+			// Key
+			uint8_t kType = data[offset++];
+			uint32_t kLen = 0;
+			if ((kType & 0xe0) == 0xa0) { // fixstr
+				kLen = kType & 0x1f;
+			} else if (kType == 0xd9) { // str 8
+				if (offset >= size) break;
+				kLen = data[offset++];
+			} else {
+				return;
+			}
+			
+			if (offset + kLen > size) break;
+			std::string key((const char *)&data[offset], kLen);
+			offset += kLen;
+
+			// Value
+			if (offset >= size) break;
+			uint8_t vType = data[offset++];
+			uint32_t vLen = 0;
+			if ((vType & 0xe0) == 0xa0) { // fixstr
+				vLen = vType & 0x1f;
+			} else if (vType == 0xd9) { // str 8
+				if (offset >= size) break;
+				vLen = data[offset++];
+			} else if (vType == 0xda) { // str 16
+				if (offset + 2 > size) break;
+				vLen = ntohs(*(uint16_t *)&data[offset]);
+				offset += 2;
+			} else {
+				continue;
+			}
+
+			if (offset + vLen > size) break;
+			std::string val((const char *)&data[offset], vLen);
+			offset += vLen;
+
+			if (key == "action") {
+				action = val;
+			} else if (key == "cmd") {
+				cmd = val;
+			}
+		}
+
+		if (action == "command" && !cmd.empty()) {
+			engine->ServerCommand(cmd.c_str());
+		}
+	}
 }
 
 bool MetaBunBridge::Pause(char *error, size_t maxlen)
