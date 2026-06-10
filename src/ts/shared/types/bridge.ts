@@ -1,5 +1,6 @@
 import type { Socket } from "bun";
 import type { ReplySource } from "./enums";
+import type { MessageMiddlewareHandler } from "./message";
 
 /**
  * GameAction format sent over the C++ Metamod bridge.
@@ -250,6 +251,13 @@ export interface IGameBridge {
 	// Database API
 	/** Executes an asynchronous SQL query using the main plugin database. */
 	SQL_TQuery(sql: string, args?: unknown[]): Promise<unknown[]>;
+
+	// Message Pipeline
+	/** Registers a middleware to intercept and modify messages. */
+	RegisterMessageMiddleware(
+		handler: MessageMiddlewareHandler,
+		priority?: number,
+	): void;
 
 	// Cross-plugin API
 	/** Registers a shared API object that other plugins can access. */

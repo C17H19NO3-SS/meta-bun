@@ -29,12 +29,14 @@ import type {
 } from "../shared/types/bridge";
 import { ReplySource } from "../shared/types/enums";
 import type { GameEvent, PlayerChatEvent } from "../shared/types/events";
+import type { MessageMiddlewareHandler } from "../shared/types/message";
 import type { IPlayerManager } from "../shared/types/player";
 import type { IPlugin } from "../shared/types/plugin";
 import { PluginContext } from "./context";
 import { ConVar as ConVarImpl } from "./convar";
 import { ClientCookie as ClientCookieImpl } from "./cookie";
 import { Menu } from "./menu";
+import { MessagePipeline } from "./pipeline";
 
 interface CommandEntry {
 	callback: CommandCallback;
@@ -75,6 +77,7 @@ export class PluginManager extends EventEmitter implements IGameBridge {
 	private pendingAPIPromises: Map<string, Array<() => void>> = new Map();
 	private consoleFilters: Array<(text: string) => string | null> = [];
 	private currentMap: string = "";
+	private pipeline: MessagePipeline = new MessagePipeline();
 
 	public HandleGameEvent(name: string, data: any): void {
 		this.emit(name, data);
@@ -1473,6 +1476,7 @@ export class PluginManager extends EventEmitter implements IGameBridge {
 					RegConsoleCmd: this.RegConsoleCmd.bind(this),
 					UnregConsoleCmd: this.UnregConsoleCmd.bind(this),
 				},
+				this.pipeline,
 			);
 
 			if (typeof PluginClass === "function") {
@@ -1846,7 +1850,8 @@ export class PluginManager extends EventEmitter implements IGameBridge {
 		return this.cookies.get(name);
 	}
 
-	// --- Asynchronous Database API ---
+	// Database API
+	/** Executes an asynchronous SQL query using the main plugin database. */
 	public async SQL_TQuery(
 		sql: string,
 		args: unknown[] = [],
@@ -1866,6 +1871,15 @@ export class PluginManager extends EventEmitter implements IGameBridge {
 				}
 			});
 		});
+	}
+
+	// --- Message Pipeline ---
+	/** Registers a middleware to intercept and modify messages. */
+	public RegisterMessageMiddleware(
+		handler: MessageMiddlewareHandler,
+		priority: number = 100,
+	): void {
+		this.pipeline.register(handler, priority, "core");
 	}
 
 	// --- Pre-hooking & Interception ---

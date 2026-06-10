@@ -1,6 +1,7 @@
 import { appendFileSync, existsSync, mkdirSync } from "node:fs";
 import { join, resolve } from "node:path";
 import type { Bridge } from "../network/bridge";
+import { FormatColorTags, ToAnsi } from "../shared/colors";
 import {
 	commandSourceStore,
 	pluginContextStore,
@@ -23,10 +24,11 @@ import {
 	type Team,
 } from "../shared/types/enums";
 import type { GameEvent } from "../shared/types/events";
+import type { MessageMiddlewareHandler } from "../shared/types/message";
 import type { IPlayerManager } from "../shared/types/player";
 import type { IPluginManager } from "../shared/types/plugin";
-import { FormatColorTags, ToAnsi } from "../shared/colors";
 import { Menu } from "./menu";
+import type { MessagePipeline } from "./pipeline";
 
 /**
  * PluginContext provides a scoped, isolated API to each loaded plugin.
@@ -75,6 +77,7 @@ export class PluginContext implements IGameBridge {
 			) => void;
 			UnregConsoleCmd: (command: string) => void;
 		},
+		private pipeline: MessagePipeline,
 	) {
 		// Track the MenuSelect listener through the standard listeners array
 		// so it is removed automatically during Cleanup().

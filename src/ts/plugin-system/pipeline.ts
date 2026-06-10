@@ -48,6 +48,16 @@ export class MessagePipeline {
 	}
 
 	/**
+	 * Removes all middlewares registered by a specific plugin.
+	 * @param pluginName - The name of the plugin whose middlewares should be removed.
+	 */
+	public unregisterPluginMiddlewares(pluginName: string): void {
+		this.middlewares = this.middlewares.filter(
+			(m) => m.pluginName !== pluginName,
+		);
+	}
+
+	/**
 	 * Gets all registered middlewares. (Mainly for testing)
 	 * @internal
 	 */
