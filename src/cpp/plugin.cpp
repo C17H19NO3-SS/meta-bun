@@ -203,6 +203,15 @@ void MetaBunBridge::Hook_DispatchConCommand(ConCommandRef cmd, const CCommandCon
 					if (it->second->bSilent) {
 						silent = true;
 					}
+				} else {
+					// Also check with sm_ prefix
+					std::string smCmd = "sm_" + lowerCmd;
+					auto itSm = m_DynamicCommands.find(smCmd);
+					if (itSm != m_DynamicCommands.end()) {
+						if (itSm->second->bSilent) {
+							silent = true;
+						}
+					}
 				}
 			}
 		}
