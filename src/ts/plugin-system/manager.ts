@@ -76,6 +76,10 @@ export class PluginManager extends EventEmitter implements IGameBridge {
 	private consoleFilters: Array<(text: string) => string | null> = [];
 	private currentMap: string = "";
 
+	public HandleGameEvent(name: string, data: any): void {
+		this.emit(name, data);
+	}
+
 	public PrintToServerConsole(message: string): void {
 		console.log(message);
 		this.bridge.Send({
@@ -1816,6 +1820,15 @@ export class PluginManager extends EventEmitter implements IGameBridge {
 			this.on("cvar_value", handler);
 			this.bridge.Send({ action: "cvar_query", name });
 		});
+	}
+
+	public SetConVar(name: string, value: string): void {
+		const localCvar = this.FindConVar(name);
+		if (localCvar) {
+			localCvar.SetString(value);
+		} else {
+			this.bridge.Send({ action: "cvar_set", name, value });
+		}
 	}
 
 	// --- ClientPrefs / Cookie System ---

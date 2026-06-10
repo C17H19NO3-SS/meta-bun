@@ -1,0 +1,10 @@
+{
+	"name": "admin-menu",
+	"version": "1.0.5",
+	"description": "Comprehensive admin management menu for MetaBun",
+	"main": "index.ts",
+	"author": "MetaBun Team",
+	"dependencies": {
+		"meta-bun": "link:../../"
+	}
+}

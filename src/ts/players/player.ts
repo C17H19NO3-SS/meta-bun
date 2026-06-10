@@ -365,17 +365,17 @@ export class Player extends EventEmitter implements IPlayer {
 
 	public Kick(reason?: string): void {
 		this.bridge.Send({
-			action: "kick",
-			client: this.userId.toString(),
+			action: "kick_client",
+			userid: this.userId,
 			reason: reason ?? "Kicked by admin",
 		});
 	}
 
 	public Slap(damage: number): void {
 		this.bridge.Send({
-			action: "slap",
-			client: this.index.toString(),
-			damage: damage.toString(),
+			action: "slap_player",
+			userid: this.userId,
+			damage: damage,
 		});
 	}
 

@@ -75,6 +75,18 @@ export const players = {
 	GetInGameClients(): IPlayer[] {
 		return GetContext().players.GetInGameClients();
 	},
+
+	/**
+	 * Finds players matching a pattern (e.g., "@all", "@ct", "#12", "name").
+	 * Supports comma-separated patterns.
+	 *
+	 * @param pattern The targeting pattern.
+	 * @param callerIndex Optional index of the player who is performing the search.
+	 * @returns Array of matching IPlayer instances.
+	 */
+	FindTargets(pattern: string, callerIndex?: number): IPlayer[] {
+		return GetContext().players.FindTargets(pattern, callerIndex);
+	},
 };
 
 /**
@@ -426,96 +438,9 @@ export function ProcessTargetString(
 	adminClient: number,
 	targetPattern: string,
 ): number[] {
-	const allInGame = players.GetInGameClients();
-	const pattern = targetPattern.trim().toLowerCase();
-
-	if (pattern === "@all" || pattern === "*") {
-		return allInGame.map((p) => p.index);
-	}
-	if (pattern === "@ct") {
-		return allInGame.filter((p) => p.GetTeam() === 3).map((p) => p.index);
-	}
-	if (pattern === "@t") {
-		return allInGame.filter((p) => p.GetTeam() === 2).map((p) => p.index);
-	}
-	if (pattern === "@alive") {
-		return allInGame.filter((p) => p.IsAlive()).map((p) => p.index);
-	}
-	if (pattern === "@dead") {
-		return allInGame.filter((p) => !p.IsAlive()).map((p) => p.index);
-	}
-	if (pattern === "@me") {
-		if (adminClient > 0 && GetContext().IsClientInGame(adminClient)) {
-			return [adminClient];
-		}
-		return [];
-	}
-	if (pattern === "!@me" || pattern === "@!me") {
-		return allInGame.filter((p) => p.index !== adminClient).map((p) => p.index);
-	}
-	if (pattern === "@bots") {
-		return allInGame.filter((p) => p.IsBot()).map((p) => p.index);
-	}
-	if (pattern === "@humans") {
-		return allInGame.filter((p) => !p.IsBot()).map((p) => p.index);
-	}
-	if (pattern === "@random") {
-		if (allInGame.length === 0) return [];
-		const rndIndex = Math.floor(Math.random() * allInGame.length);
-		const chosen = allInGame[rndIndex];
-		return chosen ? [chosen.index] : [];
-	}
-	if (pattern === "@aim") {
-		const otherPlayers = allInGame.filter((p) => p.index !== adminClient);
-		if (otherPlayers.length > 0) {
-			return [otherPlayers[0]?.index];
-		}
-		return [];
-	}
-
-	// Fallbacks:
-	// 1. UserID match if prefixed with '#'
-	if (targetPattern.startsWith("#")) {
-		const userIdVal = parseInt(targetPattern.substring(1), 10);
-		if (!userIdVal || Number.isNaN(userIdVal)) return [];
-		const match = allInGame.find((p) => p.userId === userIdVal);
-		if (match) {
-			return [match.index];
-		}
-	}
-
-	// 2. Client index match
-	const idxVal = parseInt(targetPattern, 10);
-	if (
-		!Number.isNaN(idxVal) &&
-		idxVal > 0 &&
-		idxVal <= GetContext().GetMaxClients() &&
-		GetContext().IsClientInGame(idxVal)
-	) {
-		return [idxVal];
-	}
-
-	// 3. Exact name match (case-sensitive first)
-	const exactMatch = allInGame.find((p) => p.name === targetPattern);
-	if (exactMatch) {
-		return [exactMatch.index];
-	}
-
-	// 4. Case-insensitive name match
-	const exactMatchCI = allInGame.find((p) => p.name.toLowerCase() === pattern);
-	if (exactMatchCI) {
-		return [exactMatchCI.index];
-	}
-
-	// 5. Partial name match (case-insensitive substring)
-	const partialMatch = allInGame.filter((p) =>
-		p.name.toLowerCase().includes(pattern),
-	);
-	if (partialMatch.length > 0) {
-		return partialMatch.map((p) => p.index);
-	}
-
-	return [];
+	return GetContext()
+		.players.FindTargets(targetPattern, adminClient)
+		.map((p) => p.index);
 }
 
 /**

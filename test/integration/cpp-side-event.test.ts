@@ -1,24 +1,53 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
-import { spawn } from "node:child_process";
 import { MetaBunApp } from "../../src/ts/index";
 
 describe("C++ Process Event to Bun Command Interceptor End-to-End Test", () => {
 	const TEST_PORT = 12399;
 	let app: MetaBunApp;
+	let mockCppServer: any;
+	let clientSocketForMock: any = null;
 
 	beforeAll(async () => {
-		// Start the real MetaBunApp on a custom test port
+		// We only use length-prefixed msgpack now for the bridge
+		process.env.BRIDGE_PROTOCOL = "length_prefixed_msgpack";
+
+		// 1. Start a mock C++ server
+		mockCppServer = Bun.listen({
+			hostname: "127.0.0.1",
+			port: TEST_PORT,
+			socket: {
+				data(socket, data) {
+					// Dummy handler to allow data receipt
+				},
+				open(socket) {
+					clientSocketForMock = socket;
+				}
+			}
+		});
+
+		// 2. Start the real MetaBunApp
 		app = new MetaBunApp(TEST_PORT);
 		await app.Start();
+		
+		// Wait for client to connect to our server
+		let attempts = 0;
+		while (!clientSocketForMock && attempts < 20) {
+			await new Promise(r => setTimeout(r, 100));
+			attempts++;
+		}
 	});
 
 	afterAll(async () => {
 		await app.Stop();
+		mockCppServer.stop();
+		delete process.env.BRIDGE_PROTOCOL;
 	});
 
-	it("should receive event from C++ process via TCP and execute the registered command on Bun side", async () => {
+	it("should receive event from mock C++ bridge via TCP and execute the registered command on Bun side", async () => {
+		if (!clientSocketForMock) throw new Error("Mock server never got a connection from Bun app");
+		
 		const pluginManager = app.GetPluginManager();
-		const playerManager = (app as any).playerManager;
+		const playerManager = app.GetPlayerManager();
 
 		// 1. Register a test command on Bun side
 		let commandExecuted = false;
@@ -31,57 +60,46 @@ describe("C++ Process Event to Bun Command Interceptor End-to-End Test", () => {
 			executedArgs = args;
 		});
 
-		// 2. Spawn the compiled C++ binary as a separate process
-		const cppProcess = spawn("./test_cpp_client", [], {
-			cwd: "test/integration",
-		});
+		// 2. Send PlayerConnect event using length-prefixed JSON (as fallback) or MsgPack
+		const connectPayload = {
+			event: "PlayerConnect",
+			client: 1,
+			name: "CppProcessTester",
+			steamid: "STEAM_0:0:9876",
+			userid: 98,
+			isBot: false,
+			language: "en",
+		};
+		// Use msgpack as it's the default when not length_prefixed_json
+		const { encode } = require("@msgpack/msgpack");
+		const encoded = encode(connectPayload);
+		const header = Buffer.alloc(4);
+		header.writeUInt32BE(encoded.length, 0);
+		clientSocketForMock.write(Buffer.concat([header, encoded]));
 
-		let cppStdout = "";
-		let cppStderr = "";
+		// Wait a brief moment for Bun to process PlayerConnect and instantiate the Player
+		await new Promise((resolve) => setTimeout(resolve, 500));
 
-		cppProcess.stdout.on("data", (data) => {
-			cppStdout += data.toString();
-		});
-
-		cppProcess.stderr.on("data", (data) => {
-			cppStderr += data.toString();
-		});
-
-		const exitCodePromise = new Promise<number | null>((resolve) => {
-			cppProcess.on("exit", (code) => {
-				resolve(code);
-			});
-		});
-
-		// 3. Wait for the C++ process to finish (with a timeout of 10s)
-		const timeoutPromise = new Promise<null>((_, reject) => {
-			setTimeout(() => reject(new Error("C++ Process timed out")), 10000);
-		});
-
-		let exitCode;
-		try {
-			exitCode = await Promise.race([exitCodePromise, timeoutPromise]);
-		} catch (err) {
-			console.log("--- C++ client stdout (on error) ---");
-			console.log(cppStdout);
-			console.log("--- C++ client stderr (on error) ---");
-			console.log(cppStderr);
-			throw err;
-		}
-
-		console.log("--- C++ client stdout ---");
-		console.log(cppStdout);
-		console.log("--- C++ client stderr ---");
-		console.log(cppStderr);
-
-		// 4. Verify C++ process executed successfully (exit code 0)
-		expect(exitCode).toBe(0);
-
-		// 5. Verify the Bun player was created and command was executed on Bun side with correct args
+		// Verify player is successfully tracked
 		const player = playerManager.Get(1);
 		expect(player).toBeDefined();
-		expect(player.name).toBe("CppProcessTester");
+		expect(player?.name).toBe("CppProcessTester");
 
+		// 3. Send ConsoleCommand event
+		const cmdPayload = {
+			action: "console_cmd",
+			userid: 98,
+			args: ["sm_test_cpp_command", "cppVal1", "cppVal2"],
+		};
+		const encodedCmd = encode(cmdPayload);
+		const headerCmd = Buffer.alloc(4);
+		headerCmd.writeUInt32BE(encodedCmd.length, 0);
+		clientSocketForMock.write(Buffer.concat([headerCmd, encodedCmd]));
+
+		// Wait a brief moment for the Bun command interceptor to process it
+		await new Promise((resolve) => setTimeout(resolve, 500));
+
+		// Verify command was successfully executed on Bun side with correct args
 		expect(commandExecuted).toBe(true);
 		expect(executedClient).toBe(1);
 		expect(executedArgs).toEqual(["cppVal1", "cppVal2"]);

@@ -604,6 +604,10 @@ export class PluginContext implements IGameBridge {
 		return this.pluginManager.QueryConVar(name);
 	}
 
+	public SetConVar(name: string, value: string): void {
+		this.pluginManager.SetConVar(name, value);
+	}
+
 	// ClientPrefs / Cookie System
 	public RegClientCookie(name: string, description: string): ClientCookie {
 		return this.pluginManager.RegClientCookie(name, description);

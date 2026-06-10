@@ -77,9 +77,6 @@ FROM debian:12
 RUN apt-get update && apt-get install -y \\
     build-essential \\
     cmake \\
-    libprotobuf-dev \\
-    protobuf-compiler \\
-    nlohmann-json3-dev \\
     && rm -rf /var/lib/apt/lists/*
 `;
 			fs.writeFileSync(
@@ -97,6 +94,9 @@ RUN apt-get update && apt-get install -y \\
 		console.log(
 			`[Build Script] Using persistent builder image: ${builderImage}`,
 		);
+
+		// 2a. Generate Protobuf headers from SDK
+		console.log("[Build Script] Generating Protobuf headers...");
 		await runCommand(
 			"docker",
 			[
@@ -109,7 +109,43 @@ RUN apt-get update && apt-get install -y \\
 				builderImage,
 				"bash",
 				"-c",
-				"rm -rf src/cpp/build && ./src/cpp/build.sh --sdk /workspace/sdks/hl2sdk-cs2 --mmsrc /workspace/sdks/metamod-source --release && cp -v /usr/lib/x86_64-linux-gnu/libprotobuf.so.32 /workspace/src/cpp/build/package/addons/meta-bun/bin/",
+				"mkdir -p src/cpp/generated && for f in sdks/hl2sdk-cs2/common/*.proto; do sdks/hl2sdk-cs2/devtools/bin/linux/protoc --proto_path=sdks/hl2sdk-cs2/common --proto_path=sdks/hl2sdk-cs2/thirdparty/protobuf-3.21.8/src --cpp_out=src/cpp/generated $f; done",
+			],
+			rootDir,
+		);
+
+		// 2b. Generate compatibility symlinks
+		console.log("[Build Script] Creating compatibility symlinks...");
+		await runCommand(
+			"docker",
+			[
+				"run",
+				"--rm",
+				"-v",
+				`${rootDir}:/workspace`,
+				"-w",
+				"/workspace",
+				builderImage,
+				"bash",
+				"-c",
+				"mkdir -p src/cpp/generated/tier1 && ln -sf /workspace/sdks/hl2sdk-cs2/public/tier0/interface.h src/cpp/generated/tier1/interface.h && ln -sf /workspace/sdks/hl2sdk-cs2/public/toolframework/itoolentity.h src/cpp/generated/iservertools.h && ln -sf /workspace/sdks/hl2sdk-cs2/public/eiface.h src/cpp/generated/iservergameents.h",
+			],
+			rootDir,
+		);
+
+		await runCommand(
+			"docker",
+			[
+				"run",
+				"--rm",
+				"-v",
+				`${rootDir}:/workspace`,
+				"-w",
+				"/workspace",
+				builderImage,
+				"bash",
+				"-c",
+				"rm -rf src/cpp/build && ./src/cpp/build.sh --sdk /workspace/sdks/hl2sdk-cs2 --mmsrc /workspace/sdks/metamod-source --release",
 			],
 			rootDir,
 		);
@@ -183,7 +219,7 @@ RUN apt-get update && apt-get install -y \\
 	// 6. Generate metabun.vdf for Metamod
 	const metamodDir = path.join(distAddonsDir, "metamod");
 	fs.mkdirSync(metamodDir, { recursive: true });
-	const vdfContent = `"Metamod Plugin"\n{\n\t"alias"\t"metabun"\n\t"file"\t"addons/meta-bun/bin/libmetabun_plugin"\n}\n`;
+	const vdfContent = `"Metamod Plugin"\n{\n\t"alias"\t"metabun"\n\t"file"\t"addons/meta-bun/bin/metabun_bridge_mm"\n}\n`;
 	fs.writeFileSync(path.join(metamodDir, "metabun.vdf"), vdfContent);
 
 	// 7. Copy configs, translations

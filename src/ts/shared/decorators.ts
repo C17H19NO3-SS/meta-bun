@@ -1,18 +1,20 @@
+import type { CommandOptions } from "./types/bridge";
+
 /**
  * Decorator to register a class method as a console command.
  */
 export function Command(
 	name: string,
-	flags: string | null = null,
-	description: string | null = null,
+	options?: CommandOptions | string | null,
+	description?: string | null,
 ) {
 	return (target: any, propertyKey: string, descriptor: PropertyDescriptor) => {
 		const constructor = target.constructor as unknown as {
 			__commands?: Array<{
 				name: string;
 				methodName: string;
-				flags: string | null;
-				description: string | null;
+				options?: CommandOptions | string | null;
+				description?: string | null;
 			}>;
 		};
 		if (!constructor.__commands) {
@@ -21,11 +23,22 @@ export function Command(
 		constructor.__commands.push({
 			name,
 			methodName: propertyKey,
-			flags,
+			options,
 			description,
 		});
 		return descriptor;
 	};
+}
+
+/**
+ * Decorator to register a class method as an administrative console command.
+ */
+export function AdminCommand(
+	name: string,
+	options: CommandOptions | string = "b",
+	description: string | null = null,
+) {
+	return Command(name, options, description);
 }
 
 /**
@@ -43,6 +56,11 @@ export function Hook(eventName: string) {
 		return descriptor;
 	};
 }
+
+/**
+ * Alias for Hook.
+ */
+export const HookEvent = Hook;
 
 /**
  * Decorator to register a class method as a shared API.

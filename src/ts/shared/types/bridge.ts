@@ -238,6 +238,8 @@ export interface IGameBridge {
 	FindConVar(name: string): ConVar | undefined;
 	/** Asynchronously queries a console variable value from the engine. */
 	QueryConVar(name: string): Promise<string | null>;
+	/** Sets a console variable value (Bun-side or Engine-side). */
+	SetConVar(name: string, value: string): void;
 
 	// Cookie System
 	/** Registers a persistent client cookie (ClientPrefs). */

@@ -342,6 +342,11 @@ export class MetaBunApp {
 			return;
 		}
 
+		if (anyPayload.action === "game_event") {
+			this.pluginManager.HandleGameEvent(anyPayload.name, anyPayload.data);
+			return;
+		}
+
 		// Handle player management events
 		if (payload.event === "PlayerConnect") {
 			const conn = payload as PlayerConnectEvent;

@@ -1,4 +1,5 @@
 import type { Bridge } from "../network/bridge";
+import { FormatColorTags } from "../shared/colors";
 import type { IMenu, MenuItem } from "../shared/types/bridge";
 
 /**
@@ -53,6 +54,10 @@ export class Menu implements IMenu {
 		this.items.push({ info, display });
 	}
 
+	public ClearItems(): void {
+		this.items = [];
+	}
+
 	public Display(client: number, page: number = 1): void {
 		this.lastClient = client;
 		this.lastPage = page;
@@ -102,9 +107,9 @@ export class Menu implements IMenu {
 		}
 
 		// Modern and Polished UI Style
-		const styledTitle = `{Red}● {White}${this.title}`;
-		const styledSubtitle = this.subtitle ? `{Grey}${this.subtitle}` : "";
-		const styledFooter = `{Grey}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n${footerText ? `{Yellow}${footerText}\n` : ""}{Red}[MetaBun v1.0]{Default}`;
+		const styledTitle = FormatColorTags(`{Red}● {White}${this.title}`);
+		const styledSubtitle = this.subtitle ? FormatColorTags(`{Grey}${this.subtitle}`) : "";
+		const styledFooter = FormatColorTags(`{Grey}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n${footerText ? `{Yellow}${footerText}\n` : ""}{Red}[MetaBun v1.0]{Default}`);
 
 		this.bridge.Send({
 			action: "menu",
@@ -127,8 +132,8 @@ export class Menu implements IMenu {
 			this.Display(client, this.lastPage - 1);
 			return true;
 		}
-		if (info === "__exit__") {
-			return false;
+		if (info === "__exit__" || info === "__none__") {
+			return true;
 		}
 		return false;
 	}

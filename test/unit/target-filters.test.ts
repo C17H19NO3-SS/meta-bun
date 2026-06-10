@@ -149,6 +149,27 @@ describe("Hedefleme Filtreleri (Target Filters) Birim Testleri", () => {
 
 			// @humans
 			expect(ProcessTargetString(1, "@humans")).toEqual([1, 2]);
+
+			// @spec (New)
+			// Add a spectator for this test
+			const p5 = new Player(
+				bridge,
+				adminManager,
+				banManager,
+				5,
+				"Spec_Guy",
+				"STEAM_E",
+				105,
+				false,
+			);
+			p5.UpdateTeam(Team.Spectator);
+			playerManager.AddPlayer(p5);
+			expect(ProcessTargetString(1, "@spec")).toEqual([5]);
+
+			// Comma-separated (New)
+			expect(ProcessTargetString(1, "@ct,@t")).toEqual([1, 3, 2, 4]);
+			expect(ProcessTargetString(1, "Alice,Bob")).toEqual([1, 2]);
+			expect(ProcessTargetString(1, "@me,Bot_John")).toEqual([1, 3]);
 		});
 	});
 

@@ -73,8 +73,8 @@ describe("Köprü ve Oyuncu Ağ İletişimi Entegrasyon Testleri", () => {
 
 		player.Kick("spam");
 		expect(lastAction).toEqual({
-			action: "kick",
-			client: "101",
+			action: "kick_client",
+			userid: 101,
 			reason: "spam",
 		});
 

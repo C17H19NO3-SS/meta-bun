@@ -29,6 +29,7 @@ import {
 	CreateTimer,
 	FindConVar,
 	QueryConVar,
+	SetConVar,
 } from "meta-bun/core";
 
 const ALIASES_FILE = join(process.cwd(), "configs", "core", "map_aliases.json");
@@ -426,12 +427,7 @@ export default class AdminMenuPlugin extends BasePlugin {
 		} else {
 			// Set
 			const newValue = args.slice(1).join(" ");
-			if (localCvar) {
-				localCvar.SetString(newValue);
-			} else {
-				// Send direct server command for engine cvars
-				ServerCommand(`${cvarName} "${newValue}"`);
-			}
+			SetConVar(cvarName, newValue);
 			ReplyToCommand(client, `{Green}[MetaBun]{Default} {Yellow}"${cvarName}"{Default} yeni değeri: {Lime}"${newValue}"`);
 			LogAdminAction(client, null, `changed cvar ${cvarName} to ${newValue}`);
 		}

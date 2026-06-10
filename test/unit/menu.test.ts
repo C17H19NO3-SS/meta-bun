@@ -7,6 +7,7 @@ import { Player } from "../../src/ts/players/player";
 import { PluginContext } from "../../src/ts/plugin-system/context";
 import { PluginManager } from "../../src/ts/plugin-system/manager";
 import { DatabaseManager } from "../../src/ts/shared/database";
+import { FormatColorTags } from "../../src/ts/shared/colors";
 import type { GameAction } from "../../src/ts/shared/types/bridge";
 
 describe("Menü ve Oylama Sistemi Birim Testleri", () => {
@@ -62,7 +63,7 @@ describe("Menü ve Oylama Sistemi Birim Testleri", () => {
 		menu.Display(1);
 
 		expect(lastMenuAction).toBeDefined();
-		expect(lastMenuAction.menu_title).toBe("Harita Sec");
+		expect(lastMenuAction.menu_title).toBe(FormatColorTags("{Red}● {White}Harita Sec"));
 		expect(JSON.parse(lastMenuAction.menu_items_json)).toEqual([
 			{ info: "dust2", display: "de_dust2" },
 			{ info: "inferno", display: "de_inferno" },

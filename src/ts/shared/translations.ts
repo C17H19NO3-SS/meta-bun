@@ -6,6 +6,11 @@ import { join } from "node:path";
  */
 export class TranslationManager {
 	private translations: Map<string, Record<string, string>> = new Map();
+	private baseDir: string;
+
+	constructor(baseDir?: string) {
+		this.baseDir = baseDir || join(process.cwd(), "translations");
+	}
 
 	/**
 	 * Loads a translation JSON file from the translations directory.
@@ -14,8 +19,7 @@ export class TranslationManager {
 	 */
 	public LoadLanguage(lang: string): void {
 		try {
-			const base = (this as any).baseDir || join(process.cwd(), "translations");
-			const path = join(base, `${lang}.json`);
+			const path = join(this.baseDir, `${lang}.json`);
 			if (existsSync(path)) {
 				const content = readFileSync(path, "utf-8");
 				this.translations.set(lang, JSON.parse(content));

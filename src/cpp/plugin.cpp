@@ -257,8 +257,16 @@ void MetaBunBridge::OnDynamicCommand(const CCommandContext &context, const CComm
 	// For now, let's keep it empty to avoid duplicate events in Bun.
 }
 
+static uint64 flagsToRemove = (FCVAR_HIDDEN | FCVAR_DEVELOPMENTONLY);
+static void UnlockConVars() {
+	for (ConVarRefAbstract ref(ConVarRef((uint16)0)); ref.IsValidRef(); ref = ConVarRefAbstract(ConVarRef(ref.GetAccessIndex() + 1))) {
+		if (ref.IsFlagSet(flagsToRemove)) ref.RemoveFlags(flagsToRemove);
+	}
+}
+
 void MetaBunBridge::AllPluginsLoaded()
 {
+	UnlockConVars();
 }
 
 void MetaBunBridge::StartServer()
@@ -664,7 +672,7 @@ void MetaBunBridge::ProcessMessage(const uint8_t *data, uint32_t size)
 			ConVarRef ref = icvar->FindConVar(name.c_str());
 			if (ref.IsValidRef()) {
 				ConVarRefAbstract abstractRef(ref);
-				abstractRef.SetString(value.c_str());
+				abstractRef.SetString(value.c_str(), CSplitScreenSlot(0));
 			}
 		}
 	}
@@ -674,7 +682,7 @@ void MetaBunBridge::ProcessMessage(const uint8_t *data, uint32_t size)
 			ConVarRef ref = icvar->FindConVar(name.c_str());
 			if (ref.IsValidRef()) {
 				ConVarRefAbstract abstractRef(ref);
-				CUtlString val = abstractRef.GetString();
+				CUtlString val = abstractRef.GetString(CSplitScreenSlot(0));
 				
 				std::vector<uint8_t> buffer;
 				auto PackString = [&buffer](const std::string& str) {

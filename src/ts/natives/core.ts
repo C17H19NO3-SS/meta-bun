@@ -234,6 +234,13 @@ export function QueryConVar(name: string): Promise<string | null> {
 }
 
 /**
+ * Sets a console variable value (Bun-side or Engine-side).
+ */
+export function SetConVar(name: string, value: string): void {
+	GetContext().SetConVar(name, value);
+}
+
+/**
  * Registers a client preference cookie.
  */
 export function RegClientCookie(
