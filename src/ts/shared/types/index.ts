@@ -3,6 +3,7 @@ export * from "./ast";
 export * from "./bridge";
 export * from "./enums";
 export * from "./events";
+export * from "./message";
 export * from "./player";
 export * from "./plugin";
 export * from "./weapon";
