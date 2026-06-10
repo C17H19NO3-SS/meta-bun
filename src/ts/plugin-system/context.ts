@@ -291,6 +291,14 @@ export class PluginContext implements IGameBridge {
 		return this.pluginManager.GetAPIAsync(name);
 	}
 
+	// Message Pipeline
+	public RegisterMessageMiddleware(
+		handler: MessageMiddlewareHandler,
+		priority: number = 100,
+	): void {
+		this.pipeline.register(handler, priority, this.pluginName);
+	}
+
 	public TPrintToChat(client: number, key: string, ...args: unknown[]): void {
 		const p = this.players.Get(client);
 		const lang = p?.GetLanguage() ?? "en";
@@ -747,6 +755,9 @@ export class PluginContext implements IGameBridge {
 
 		// Clear menu callbacks to release references and prevent leaks
 		this.menuCallbacks.clear();
+
+		// Unregister message middlewares
+		this.pipeline.unregisterPluginMiddlewares(this.pluginName);
 
 		// Unregister all shared APIs registered by this plugin
 		for (const name of this.registeredAPIs) {

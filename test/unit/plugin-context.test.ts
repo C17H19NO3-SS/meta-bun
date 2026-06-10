@@ -8,6 +8,7 @@ import { PlayerManager } from "../../src/ts/players/manager";
 import { Player } from "../../src/ts/players/player";
 import { PluginContext } from "../../src/ts/plugin-system/context";
 import { PluginManager } from "../../src/ts/plugin-system/manager";
+import { MessagePipeline } from "../../src/ts/plugin-system/pipeline";
 import { DatabaseManager } from "../../src/ts/shared/database";
 import { translationManager } from "../../src/ts/shared/translations";
 import type { GameAction } from "../../src/ts/shared/types/bridge";
@@ -61,6 +62,7 @@ describe("Eklenti Bağlamı (PluginContext) Birim Testleri", () => {
 				RegConsoleCmd: pluginManager.RegConsoleCmd.bind(pluginManager),
 				UnregConsoleCmd: pluginManager.UnregConsoleCmd.bind(pluginManager),
 			},
+			new MessagePipeline(),
 		);
 		context.LoadTranslations("TestPlugin");
 	});
