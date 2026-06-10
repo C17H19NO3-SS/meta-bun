@@ -78,11 +78,11 @@ async function generateSchema() {
 												tsType = "string";
 											}
 
-											fileContent += `\n\tget ${propName}(): ${tsType} {\n`;
-											fileContent += `\t\treturn globalThis.Bridge.Send({ action: "GetEntityProp", entityId: this.entityId, propName: "${propName}" });\n`;
+											fileContent += `\n\tasync get_${propName}(): Promise<${tsType}> {\n`;
+											fileContent += `\t\treturn await globalThis.Bridge.SendAsync({ action: "GetEntityProp", entityId: this.entityId, propName: "${propName}" });\n`;
 											fileContent += `\t}\n`;
 
-											fileContent += `\n\tset ${propName}(value: ${tsType}) {\n`;
+											fileContent += `\n\tset_${propName}(value: ${tsType}): void {\n`;
 											fileContent += `\t\tglobalThis.Bridge.Send({ action: "SetEntityProp", entityId: this.entityId, propName: "${propName}", value });\n`;
 											fileContent += `\t}\n`;
 										}

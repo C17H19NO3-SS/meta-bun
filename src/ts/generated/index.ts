@@ -4,15 +4,15 @@
 export class CCSPlayerController {
 	constructor(public entityId: number) {}
 
-	get m_iHealth(): number {
-		return globalThis.Bridge.Send({
+	async get_m_iHealth(): Promise<number> {
+		return await globalThis.Bridge.SendAsync({
 			action: "GetEntityProp",
 			entityId: this.entityId,
 			propName: "m_iHealth",
 		});
 	}
 
-	set m_iHealth(value: number) {
+	set_m_iHealth(value: number): void {
 		globalThis.Bridge.Send({
 			action: "SetEntityProp",
 			entityId: this.entityId,

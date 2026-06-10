@@ -72,4 +72,17 @@ export class Bridge {
 			console.error("[Bridge] Send serialization error:", err);
 		}
 	}
+
+	/**
+	 * Sends a payload to the C++ Metamod bridge and waits for a response.
+	 * Currently a stub implementation as full async response routing requires
+	 * a message ID system in the C++ bridge.
+	 *
+	 * @param action The GameAction payload to transmit.
+	 */
+	public async SendAsync(action: GameAction): Promise<any> {
+		this.Send(action);
+		// TODO: Implement correlation ID tracking for real async responses
+		return Promise.resolve(null);
+	}
 }

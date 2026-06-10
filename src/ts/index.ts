@@ -85,6 +85,9 @@ export class MetaBunApp {
 		this.protocol =
 			Bun.env["BRIDGE_PROTOCOL"] || this.settings.bridge?.protocol || "ndjson";
 		this.bridge.SetProtocol(this.protocol as BridgeProtocol);
+
+		// Expose bridge globally for SchemaGen proxy classes
+		(globalThis as any).Bridge = this.bridge;
 	}
 
 	private LoadSettings(): void {
