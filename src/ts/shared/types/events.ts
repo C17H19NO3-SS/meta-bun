@@ -53,6 +53,10 @@ export interface PlayerChatEvent extends GameEvent {
 	text: string;
 	/** Whether the message was sent to team-only chat. */
 	team_only: boolean;
+	/** Compatibility field for teamOnly. */
+	teamOnly?: boolean;
+	/** Whether the message should be hidden from chat (silent). */
+	silent?: boolean;
 }
 
 /**

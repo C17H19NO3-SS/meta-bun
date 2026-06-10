@@ -457,4 +457,13 @@ export interface IPlayerManager {
 	 * Useful for crash-safe saves or admin-triggered snapshots.
 	 */
 	Checkpoint(): void;
+
+	/**
+	 * Finds players matching a pattern (e.g., "@all", "@ct", "#12", "name").
+	 * Supports comma-separated patterns.
+	 *
+	 * @param pattern The targeting pattern.
+	 * @param callerIndex Optional index of the player who is performing the search.
+	 */
+	FindTargets(pattern: string, callerIndex?: number): IPlayer[];
 }

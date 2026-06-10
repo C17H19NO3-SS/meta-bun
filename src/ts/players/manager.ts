@@ -246,6 +246,11 @@ export class PlayerManager implements IPlayerManager {
 		return this.players.get(index);
 	}
 
+	public GetByUserId(userId: number): IPlayer | undefined {
+		if (userId === 0) return this.consolePlayer || undefined;
+		return Array.from(this.players.values()).find((p) => p.userId === userId);
+	}
+
 	public InitializeConsole(
 		bridge: Bridge,
 		adminManager: IAdminManager,
@@ -306,5 +311,130 @@ export class PlayerManager implements IPlayerManager {
 	 */
 	public GetInGameClients(): IPlayer[] {
 		return Array.from(this.players.values());
+	}
+
+	/**
+	 * Finds players matching a pattern (e.g., "@all", "@ct", "#12", "name").
+	 * Supports comma-separated patterns.
+	 *
+	 * @param pattern The targeting pattern.
+	 * @param callerIndex Optional index of the player who is performing the search.
+	 */
+	public FindTargets(pattern: string, callerIndex?: number): IPlayer[] {
+		if (!pattern) return [];
+
+		const subPatterns = pattern.split(",").map((p) => p.trim());
+		const allMatches = new Set<IPlayer>();
+
+		for (const subPattern of subPatterns) {
+			const matches = this.ResolveSingleTarget(subPattern, callerIndex);
+			for (const match of matches) {
+				allMatches.add(match);
+			}
+		}
+
+		return Array.from(allMatches);
+	}
+
+	private ResolveSingleTarget(
+		pattern: string,
+		callerIndex?: number,
+	): IPlayer[] {
+		const allInGame = this.GetInGameClients();
+		const lowerPattern = pattern.toLowerCase();
+
+		if (lowerPattern === "@all" || lowerPattern === "*") {
+			return allInGame;
+		}
+
+		if (lowerPattern === "@ct") {
+			return allInGame.filter((p) => p.GetTeam() === Team.CT);
+		}
+
+		if (lowerPattern === "@t") {
+			return allInGame.filter((p) => p.GetTeam() === Team.Terrorist);
+		}
+
+		if (lowerPattern === "@spec") {
+			return allInGame.filter((p) => p.GetTeam() === Team.Spectator);
+		}
+
+		if (lowerPattern === "@alive") {
+			return allInGame.filter((p) => p.IsAlive());
+		}
+
+		if (lowerPattern === "@dead") {
+			return allInGame.filter((p) => !p.IsAlive());
+		}
+
+		if (lowerPattern === "@me") {
+			if (callerIndex !== undefined) {
+				const caller = this.Get(callerIndex);
+				return caller ? [caller] : [];
+			}
+			return [];
+		}
+
+		if (lowerPattern === "!@me" || lowerPattern === "@!me") {
+			return allInGame.filter((p) => p.index !== callerIndex);
+		}
+
+		if (lowerPattern === "@bots") {
+			return allInGame.filter((p) => p.IsBot());
+		}
+
+		if (lowerPattern === "@humans") {
+			return allInGame.filter((p) => !p.IsBot());
+		}
+
+		if (lowerPattern === "@random") {
+			if (allInGame.length === 0) return [];
+			const rndIndex = Math.floor(Math.random() * allInGame.length);
+			const chosen = allInGame[rndIndex];
+			return chosen ? [chosen] : [];
+		}
+
+		if (lowerPattern === "@aim") {
+			// Simplified: just return first other player for now if callerIndex is provided
+			const otherPlayers = allInGame.filter((p) => p.index !== callerIndex);
+			return otherPlayers.length > 0 ? [otherPlayers[0]] : [];
+		}
+
+		// Fallbacks:
+		// 1. UserID match if prefixed with '#'
+		if (pattern.startsWith("#")) {
+			const userIdVal = parseInt(pattern.substring(1), 10);
+			if (!Number.isNaN(userIdVal)) {
+				const match = allInGame.find((p) => p.userId === userIdVal);
+				if (match) return [match];
+			}
+		}
+
+		// 2. Client index match (plain number)
+		const idxVal = parseInt(pattern, 10);
+		if (!Number.isNaN(idxVal) && idxVal > 0) {
+			const match = this.Get(idxVal);
+			if (match) return [match];
+		}
+
+		// 3. Exact name match (case-sensitive first)
+		const exactMatch = allInGame.find((p) => p.name === pattern);
+		if (exactMatch) return [exactMatch];
+
+		// 4. Case-insensitive name match
+		const exactMatchCI = allInGame.find(
+			(p) => p.name.toLowerCase() === lowerPattern,
+		);
+		if (exactMatchCI) return [exactMatchCI];
+
+		// 5. Partial name match (case-insensitive substring)
+		const partialMatches = allInGame.filter((p) =>
+			p.name.toLowerCase().includes(lowerPattern),
+		);
+		if (partialMatches.length > 0) {
+			return partialMatches;
+		}
+
+		return [];
 	}
 }

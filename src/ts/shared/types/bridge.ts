@@ -59,6 +59,15 @@ export enum SDKHookType {
 }
 
 /**
+ * Options for registering a console command.
+ */
+export interface CommandOptions {
+	description?: string | null;
+	flags?: number | string | null;
+	silent?: boolean;
+}
+
+/**
  * Interface for the global game engine bridge.
  * Provides access to server functions, events, and client management.
  */
@@ -89,7 +98,7 @@ export interface IGameBridge {
 	RegConsoleCmd(
 		command: string,
 		callback: CommandCallback,
-		flags?: string | null,
+		options?: CommandOptions | string | null,
 		description?: string | null,
 	): void;
 

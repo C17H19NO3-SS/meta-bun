@@ -9,6 +9,7 @@ import {
 } from "node:fs";
 import { join, resolve } from "node:path";
 import type { Bridge } from "../network/bridge";
+import { FormatColorTags, ToAnsi } from "../shared/colors";
 import {
 	commandSourceStore,
 	pluginContextStore,
@@ -19,6 +20,7 @@ import type { IAdminManager } from "../shared/types/admin";
 import type {
 	ClientCookie,
 	CommandCallback,
+	CommandOptions,
 	ConVar,
 	IGameBridge,
 	IMenu,
@@ -34,72 +36,11 @@ import { ConVar as ConVarImpl } from "./convar";
 import { ClientCookie as ClientCookieImpl } from "./cookie";
 import { Menu } from "./menu";
 
-const COLOR_MAP: Record<string, string> = {
-	"{Default}": "\x01",
-	"{White}": "\x01",
-	"{Red}": "\x02",
-	"{LightRed}": "\x03",
-	"{Green}": "\x04",
-	"{Lime}": "\x05",
-	"{LightGreen}": "\x06",
-	"{DarkRed}": "\x07",
-	"{Grey}": "\x08",
-	"{Yellow}": "\x09",
-	"{Gold}": "\x0A",
-	"{Blue}": "\x0B",
-	"{DarkBlue}": "\x0C",
-	"{Purple}": "\x0E",
-	"{Magenta}": "\x0F",
-	"{Orange}": "\x10",
-	"{Cyan}": "\x10",
-};
-
-const ANSI_COLOR_MAP: Record<string, string> = {
-	"\x01": "\x1b[0m", // Default (Reset)
-	"\x02": "\x1b[31m", // Red
-	"\x03": "\x1b[91m", // Light Red
-	"\x04": "\x1b[32m", // Green
-	"\x05": "\x1b[92m", // Lime
-	"\x06": "\x1b[92m", // Light Green
-	"\x07": "\x1b[31m", // Dark Red
-	"\x08": "\x1b[90m", // Grey
-	"\x09": "\x1b[93m", // Yellow
-	"\x0A": "\x1b[33m", // Gold
-	"\x0B": "\x1b[34m", // Blue
-	"\x0C": "\x1b[94m", // Dark Blue
-	"\x0E": "\x1b[35m", // Purple
-	"\x0F": "\x1b[95m", // Magenta
-	"\x10": "\x1b[38;5;208m", // Orange/Cyan
-};
-
-/**
- * Format custom chat color tags into game color codes.
- *
- * @param message Chat message to format.
- */
-function FormatColorTags(message: string): string {
-	let formatted = message;
-	for (const [tag, code] of Object.entries(COLOR_MAP)) {
-		formatted = formatted.replaceAll(tag, code);
-	}
-	return formatted;
-}
-
-/**
- * Converts game color codes to ANSI escape sequences for terminal display.
- */
-function ToAnsi(message: string): string {
-	let formatted = message;
-	for (const [code, ansi] of Object.entries(ANSI_COLOR_MAP)) {
-		formatted = formatted.replaceAll(code, ansi);
-	}
-	return `${formatted}\x1b[0m`; // Ensure reset at end
-}
-
 interface CommandEntry {
 	callback: CommandCallback;
 	flags?: string | null;
 	description?: string | null;
+	silent?: boolean;
 }
 
 /**
@@ -268,24 +209,6 @@ export class PluginManager extends EventEmitter implements IGameBridge {
 			},
 			"z",
 			"Admin listesini yeniden yukler",
-		);
-
-		this.RegConsoleCmd(
-			"sm_who",
-			(client, args) => {
-				this.HandleWhoCommand(client, args);
-			},
-			"b",
-			"Oyundaki oyuncularin yetki durumlarini gosterir",
-		);
-
-		this.RegConsoleCmd(
-			"sm_admins",
-			(client, args) => {
-				this.HandleAdminsCommand(client, args);
-			},
-			"z",
-			"Sunucuda tanimli tum adminleri listeler",
 		);
 
 		this.RegConsoleCmd(
@@ -572,64 +495,6 @@ export class PluginManager extends EventEmitter implements IGameBridge {
 		}
 	}
 
-	private HandleWhoCommand(client: number, _args: string[]): void {
-		const players = this.players.GetAll();
-		this.ReplyToCommand(
-			client,
-			`{Gold}=== Aktif Oyuncular ve Yetkiler (${players.length}) ==={Default}`,
-		);
-		for (const p of players) {
-			const flags = this.adminManager.GetFlags(p.steamId) || "Yetki Yok";
-			const immunity = this.adminManager.GetImmunity(p.steamId);
-			this.ReplyToCommand(
-				client,
-				`{Green}${p.name}{Default} (ID: ${p.index}) - Flags: {Yellow}${flags}{Default} (Immunity: ${immunity})`,
-			);
-		}
-	}
-
-	private HandleAdminsCommand(client: number, _args: string[]): void {
-		const configPath = join(process.cwd(), "configs", "admins", "list.json");
-		if (!existsSync(configPath)) {
-			this.ReplyToCommand(
-				client,
-				"{Red}[Hata]{Default} Admin listesi dosyasi bulunamadi.",
-			);
-			return;
-		}
-
-		try {
-			const content = readFileSync(configPath, "utf-8");
-			const admins = JSON.parse(content);
-			this.ReplyToCommand(
-				client,
-				`{Gold}=== Tanimli Admin Listesi ==={Default}`,
-			);
-
-			for (const [id, entry] of Object.entries(admins)) {
-				let flags = "";
-				let groups = "";
-				if (typeof entry === "string") {
-					flags = entry;
-				} else {
-					flags = (entry as any).flags || "";
-					groups = (entry as any).groups
-						? ` (Grup: ${(entry as any).groups.join(", ")})`
-						: "";
-				}
-				this.ReplyToCommand(
-					client,
-					`{Green}${id}{Default} - Flags: {Yellow}${flags}{Default}${groups}`,
-				);
-			}
-		} catch (_err) {
-			this.ReplyToCommand(
-				client,
-				"{Red}[Hata]{Default} Admin listesi okunurken bir hata olustu.",
-			);
-		}
-	}
-
 	private HandleFsayCommand(client: number, args: string[]): void {
 		if (args.length < 2) {
 			this.ReplyToCommand(
@@ -703,6 +568,153 @@ export class PluginManager extends EventEmitter implements IGameBridge {
 		}
 	}
 
+	private ParseArguments(argsString: string): string[] {
+		const args: string[] = [];
+		let current = "";
+		let inQuotes = false;
+
+		for (let i = 0; i < argsString.length; i++) {
+			const char = argsString[i];
+			if (char === '"') {
+				inQuotes = !inQuotes;
+			} else if (char === " " && !inQuotes) {
+				if (current.length > 0) {
+					args.push(current);
+					current = "";
+				}
+			} else {
+				current += char;
+			}
+		}
+
+		if (current.length > 0) {
+			args.push(current);
+		}
+
+		return args;
+	}
+
+	private GetCommandEntry(name: string): CommandEntry | undefined {
+		let resolvedCmd = name;
+		if (this.commandAliases.has(resolvedCmd)) {
+			resolvedCmd = this.commandAliases.get(resolvedCmd)!;
+		}
+
+		const smCommandName = resolvedCmd.startsWith("sm_")
+			? resolvedCmd
+			: `sm_${resolvedCmd}`;
+		let cmdEntry = this.commands.get(smCommandName);
+		if (!cmdEntry) {
+			cmdEntry = this.commands.get(resolvedCmd);
+		}
+		return cmdEntry;
+	}
+
+	private async ExecuteCommand(
+		client: number,
+		commandName: string,
+		args: string[],
+		source: "chat" | "console",
+	): Promise<boolean> {
+		const cmdEntry = this.GetCommandEntry(commandName);
+		if (!cmdEntry) return false;
+
+		let resolvedCmd = commandName;
+		if (this.commandAliases.has(resolvedCmd)) {
+			resolvedCmd = this.commandAliases.get(resolvedCmd)!;
+		}
+		const smCommandName = resolvedCmd.startsWith("sm_")
+			? resolvedCmd
+			: `sm_${resolvedCmd}`;
+
+		const player = this.players.Get(client);
+
+		// Anti-spam check (only for players, not console/RCON)
+		if (Bun.env["NODE_ENV"] !== "test" && client !== 0 && source === "chat") {
+			const now = Date.now();
+			const lastCalled = this.playerCommandTimestamps.get(client) || 0;
+			if (now - lastCalled < 1000) {
+				if (player) {
+					player.Say("Please do not spam commands.");
+				}
+				return true; // Handled
+			}
+			this.playerCommandTimestamps.set(client, now);
+		}
+
+		// sv_cheats Check
+		const cheatCommands = [
+			"noclip",
+			"god",
+			"give",
+			"sm_noclip",
+			"sm_god",
+			"sm_give",
+		];
+		if (
+			cheatCommands.includes(resolvedCmd) ||
+			cheatCommands.includes(smCommandName)
+		) {
+			const svCheats = this.FindConVar("sv_cheats");
+			const cheatsEnabled = svCheats ? svCheats.GetInt() === 1 : false;
+			if (!cheatsEnabled) {
+				if (player) {
+					player.Say("This command requires sv_cheats to be enabled.");
+				} else if (client !== 0) {
+					this.PrintToConsole(
+						client,
+						"This command requires sv_cheats to be enabled.",
+					);
+				}
+				return true;
+			}
+		}
+
+		const { callback, flags } = cmdEntry;
+		let flagsToCheck = flags;
+		const overrideFlags =
+			this.adminManager.GetCommandOverride(smCommandName) ??
+			this.adminManager.GetCommandOverride(resolvedCmd);
+		if (overrideFlags !== undefined) {
+			flagsToCheck = overrideFlags || null;
+		}
+
+		if (client !== 0 && flagsToCheck) {
+			const hasAccess = this.CheckCommandAccess(
+				client,
+				resolvedCmd,
+				flagsToCheck,
+			);
+			if (!hasAccess) {
+				commandSourceStore.run(source, () => {
+					this.ReplyToCommand(client, "Yetkiniz yok");
+				});
+				return true;
+			}
+		}
+
+		commandSourceStore.run(source, () => {
+			try {
+				const res = callback(client, args);
+				if (res instanceof Promise) {
+					res.catch((err: Error) => {
+						console.error(
+							`[Plugin Manager] Uncaught exception in async ${source} command "${resolvedCmd}":`,
+							err,
+						);
+					});
+				}
+			} catch (err) {
+				console.error(
+					`[Plugin Manager] Uncaught exception in ${source} command "${resolvedCmd}":`,
+					err,
+				);
+			}
+		});
+
+		return true;
+	}
+
 	/**
 	 * Listens for chat events and intercepts chat triggers command executors.
 	 */
@@ -772,115 +784,25 @@ export class PluginManager extends EventEmitter implements IGameBridge {
 			}
 
 			if (text.startsWith("!") || text.startsWith("/")) {
+				const silentTrigger = text.startsWith("/") || chatData.silent === true;
 				const parts = text.split(/\s+/);
 				const commandWithTrigger = parts[0];
 
 				if (commandWithTrigger) {
-					let commandName = commandWithTrigger.substring(1); // "ping" from "!ping"
-					const args = parts.slice(1);
+					const commandName = commandWithTrigger.substring(1);
+					const argsText = text.substring(commandWithTrigger.length).trim();
+					const args = this.ParseArguments(argsText);
 
-					if (this.commandAliases.has(commandName)) {
-						commandName = this.commandAliases.get(commandName)!;
-					}
-
-					// SourceMod logic: Try finding "sm_" + commandName first
-					const smCommandName = `sm_${commandName}`;
-					let cmdEntry = this.commands.get(smCommandName);
-
-					// Fallback to exact match (if someone registered without sm_ or typed !sm_ping)
-					if (!cmdEntry) {
-						cmdEntry = this.commands.get(commandName);
-					}
-
-					// Fallback to commandWithTrigger (if someone registered as "!ping")
-					if (!cmdEntry) {
-						cmdEntry = this.commands.get(commandWithTrigger);
-					}
+					const cmdEntry =
+						this.GetCommandEntry(commandName) ||
+						this.GetCommandEntry(commandWithTrigger);
 
 					if (cmdEntry) {
-						const now = Date.now();
-						const lastCalled =
-							this.playerCommandTimestamps.get(chatData.client) || 0;
-						if (
-							Bun.env["NODE_ENV"] !== "test" &&
-							chatData.client !== 0 &&
-							now - lastCalled < 1000
-						) {
-							if (player) {
-								player.Say("Please do not spam commands.");
-							}
-							return 3;
+						this.ExecuteCommand(chatData.client, commandName, args, "chat");
+						// If message starts with / or command is registered as silent, it should be hidden
+						if (silentTrigger || cmdEntry.silent) {
+							return 3; // Plugin_Handled (Silent)
 						}
-						this.playerCommandTimestamps.set(chatData.client, now);
-
-						// sv_cheats Check
-						const cheatCommands = [
-							"noclip",
-							"god",
-							"give",
-							"sm_noclip",
-							"sm_god",
-							"sm_give",
-						];
-						const isCheat =
-							cheatCommands.includes(commandName) ||
-							cheatCommands.includes(smCommandName);
-						if (isCheat) {
-							const svCheats = this.FindConVar("sv_cheats");
-							const cheatsEnabled = svCheats ? svCheats.GetInt() === 1 : false;
-							if (!cheatsEnabled) {
-								if (player) {
-									player.Say("This command requires sv_cheats to be enabled.");
-								}
-								return 3;
-							}
-						}
-
-						const { callback, flags } = cmdEntry;
-						let flagsToCheck = flags;
-						const overrideFlags =
-							this.adminManager.GetCommandOverride(smCommandName) ??
-							this.adminManager.GetCommandOverride(commandName);
-						if (overrideFlags !== undefined) {
-							flagsToCheck = overrideFlags || null;
-						}
-
-						if (chatData.client !== 0 && flagsToCheck) {
-							const hasAccess = this.CheckCommandAccess(
-								chatData.client,
-								commandName,
-								flagsToCheck,
-							);
-							if (!hasAccess) {
-								const player = this.players.Get(chatData.client);
-								if (player) {
-									player.Say("Yetkiniz yok");
-								} else {
-									this.PrintToChat(chatData.client, "Yetkiniz yok");
-								}
-								return 3;
-							}
-						}
-
-						commandSourceStore.run("chat", () => {
-							try {
-								const res = callback(chatData.client, args);
-								if (res instanceof Promise) {
-									res.catch((err: Error) => {
-										console.error(
-											`[Plugin Manager] Uncaught exception in async chat command "${commandName}":`,
-											err,
-										);
-									});
-								}
-							} catch (err) {
-								console.error(
-									`[Plugin Manager] Uncaught exception in chat command "${commandName}":`,
-									err,
-								);
-							}
-						});
-						return 3; // Block command text from chat
 					}
 				}
 			}
@@ -893,65 +815,12 @@ export class PluginManager extends EventEmitter implements IGameBridge {
 				args: string[];
 				client: number;
 			};
-			const commandName = cmdData.command;
-			const args = cmdData.args || [];
-
-			let resolvedCmd = commandName;
-			if (this.commandAliases.has(resolvedCmd)) {
-				resolvedCmd = this.commandAliases.get(resolvedCmd)!;
-			}
-
-			const smCommandName = resolvedCmd.startsWith("sm_")
-				? resolvedCmd
-				: `sm_${resolvedCmd}`;
-			let cmdEntry = this.commands.get(smCommandName);
-			if (!cmdEntry) {
-				cmdEntry = this.commands.get(resolvedCmd);
-			}
-
-			if (cmdEntry) {
-				const { callback, flags } = cmdEntry;
-				let flagsToCheck = flags;
-				const overrideFlags =
-					this.adminManager.GetCommandOverride(smCommandName) ??
-					this.adminManager.GetCommandOverride(resolvedCmd);
-				if (overrideFlags !== undefined) {
-					flagsToCheck = overrideFlags || null;
-				}
-
-				if (cmdData.client !== 0 && flagsToCheck) {
-					const hasAccess = this.CheckCommandAccess(
-						cmdData.client,
-						resolvedCmd,
-						flagsToCheck,
-					);
-					if (!hasAccess) {
-						commandSourceStore.run("console", () => {
-							this.ReplyToCommand(cmdData.client, "Yetkiniz yok");
-						});
-						return;
-					}
-				}
-
-				commandSourceStore.run("console", () => {
-					try {
-						const res = callback(cmdData.client, args);
-						if (res instanceof Promise) {
-							res.catch((err: Error) => {
-								console.error(
-									`[Plugin Manager] Uncaught exception in async console command "${resolvedCmd}":`,
-									err,
-								);
-							});
-						}
-					} catch (err) {
-						console.error(
-							`[Plugin Manager] Uncaught exception in console command "${resolvedCmd}":`,
-							err,
-						);
-					}
-				});
-			}
+			this.ExecuteCommand(
+				cmdData.client,
+				cmdData.command,
+				cmdData.args || [],
+				"console",
+			);
 		});
 	}
 
@@ -963,23 +832,48 @@ export class PluginManager extends EventEmitter implements IGameBridge {
 	}
 
 	public ServerCommand(cmd: string): void {
-		this.bridge.Send({ action: "command", cmd });
+		this.bridge.Send({ action: "server_cmd", cmd });
 	}
 
 	public RegConsoleCmd(
 		command: string,
 		callback: CommandCallback,
-		flags?: string | null,
+		options?: CommandOptions | string | null,
 		description?: string | null,
 	): void {
-		this.commands.set(command, { callback, flags, description });
+		let finalFlags: string | null = null;
+		let finalDescription: string | null = description || null;
+		let silent = false;
+		let numericFlags = 0;
+
+		if (typeof options === "string") {
+			finalFlags = options;
+		} else if (options && typeof options === "object") {
+			finalFlags = (options.flags ?? null) as string | null;
+			if (typeof options.flags === "number") {
+				numericFlags = options.flags;
+			}
+			finalDescription = options.description || description || null;
+			silent = options.silent || false;
+		}
+
+		this.commands.set(command, {
+			callback,
+			flags: finalFlags,
+			description: finalDescription,
+			silent,
+		});
+
 		console.log(
-			`[Plugin Manager] Registered command: ${command}${flags ? ` [Flags: ${flags}]` : ""}${description ? ` (${description})` : ""}`,
+			`[Plugin Manager] Registered command: ${command}${finalFlags ? ` [Flags: ${finalFlags}]` : ""}${finalDescription ? ` (${finalDescription})` : ""}${silent ? " [Silent]" : ""}`,
 		);
+
 		this.bridge.Send({
 			action: "register_command",
 			name: command,
-			description: description || "",
+			description: finalDescription || "",
+			flags: numericFlags,
+			silent,
 		});
 	}
 
@@ -1483,6 +1377,10 @@ export class PluginManager extends EventEmitter implements IGameBridge {
 	/**
 	 * Loads or reloads a plugin from a file or folder.
 	 */
+	public GetPluginContext(name: string): any {
+		return this.loadedPlugins.get(name)?.context;
+	}
+
 	public async LoadPlugin(nameOrPath: string) {
 		const fullPath = resolve(this.pluginsFolder, nameOrPath);
 
@@ -1648,7 +1546,7 @@ export class PluginManager extends EventEmitter implements IGameBridge {
 									);
 								});
 							},
-							cmd.flags,
+							cmd.options,
 							cmd.description,
 						);
 					}
@@ -1746,17 +1644,24 @@ export class PluginManager extends EventEmitter implements IGameBridge {
 
 		const items = readdirSync(this.pluginsFolder, { withFileTypes: true });
 		for (const item of items) {
-			if (item.isFile()) {
-				const file = item.name;
-				if (
-					(file.endsWith(".ts") || file.endsWith(".js")) &&
-					!file.endsWith(".d.ts")
-				) {
-					await this.LoadPlugin(file);
+			try {
+				if (item.isFile()) {
+					const file = item.name;
+					if (
+						(file.endsWith(".ts") || file.endsWith(".js")) &&
+						!file.endsWith(".d.ts")
+					) {
+						await this.LoadPlugin(file);
+					}
+				} else if (item.isDirectory()) {
+					const folder = item.name;
+					await this.LoadPlugin(folder);
 				}
-			} else if (item.isDirectory()) {
-				const folder = item.name;
-				await this.LoadPlugin(folder);
+			} catch (err) {
+				this.LogMessage(
+					`Eklenti yuklenirken hata olustu (${item.name}): ${err}`,
+					"error",
+				);
 			}
 		}
 		this.PrintToServerConsole("[Plugin System] Plugin system is now active.");

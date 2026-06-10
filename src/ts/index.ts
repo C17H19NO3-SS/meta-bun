@@ -38,6 +38,7 @@ export class MetaBunApp {
 	private authenticatedSockets: Set<BunSocket> = new Set();
 	private protocol: BridgeProtocol = "ndjson";
 	private server: any = null;
+	private clientSocket: BunSocket | null = null;
 	private rconServer: any = null;
 	private debug = false;
 
@@ -110,101 +111,49 @@ export class MetaBunApp {
 		}
 	}
 
-	/**
-	 * Starts the bridge TCP server and initializes the plugin manager loader.
-	 */
-	public async Start(): Promise<void> {
-		try {
-			this.server = Bun.listen<unknown>({
-				hostname: "0.0.0.0",
-				port: this.port,
-				reusePort: true,
-				socket: {
-					open: (socket: any) => {
-						const bunSocket = socket as BunSocket;
-						this.socketBuffers.set(bunSocket, Buffer.alloc(0));
-						const bridgeToken =
-							Bun.env["BRIDGE_TOKEN"] || this.settings.bridge?.token;
-						if (!bridgeToken) {
-							this.pluginManager.LogMessage(
-								"Metamod C++ bridge baglandi (Yetki gerekmiyor).",
-								"success",
-							);
-							this.authenticatedSockets.add(bunSocket);
-							this.bridge.SetSocket(bunSocket);
-							this.pluginManager.emit("BridgeConnected");
-						} else {
-							this.pluginManager.LogMessage(
-								"Metamod C++ bridge baglandi. Yetki bekleniyor...",
-								"info",
-							);
-						}
-					},
-					data: (socket: any, data: any) => {
-						const bunSocket = socket as BunSocket;
-						let buffer = this.socketBuffers.get(bunSocket) || Buffer.alloc(0);
-						buffer = Buffer.concat([buffer, data]);
-						const bridgeToken =
-							Bun.env["BRIDGE_TOKEN"] || this.settings.bridge?.token;
+	private async ConnectToBridge(): Promise<void> {
+		const bridgeToken = Bun.env["BRIDGE_TOKEN"] || this.settings.bridge?.token;
 
-						if (this.protocol === "ndjson") {
-							let newlineIndex;
-							while ((newlineIndex = buffer.indexOf(10)) !== -1) {
-								const lineBuffer = buffer.subarray(0, newlineIndex);
-								buffer = buffer.subarray(newlineIndex + 1);
-								const line = lineBuffer.toString("utf-8").trim();
-								if (line) {
-									try {
-										const payload = JSON.parse(line) as GameEvent;
-										if (
-											bridgeToken &&
-											!this.authenticatedSockets.has(bunSocket)
-										) {
-											const authPayload = payload as unknown as AuthEvent;
-											if (
-												payload.event === "auth" ||
-												authPayload.action === "auth"
-											) {
-												if (authPayload.token === bridgeToken) {
-													this.pluginManager.LogMessage(
-														"Metamod C++ bridge yetkilendirildi.",
-														"success",
-													);
-													this.authenticatedSockets.add(bunSocket);
-													this.bridge.SetSocket(bunSocket);
-													this.pluginManager.emit("BridgeConnected");
-													this.bridge.Send({ action: "auth_success" });
-												} else {
-													this.pluginManager.LogMessage(
-														"Bridge yetkilendirme basarisiz. Yanlis token.",
-														"error",
-													);
-													this.bridge.SetSocket(bunSocket);
-													this.bridge.Send({ action: "auth_failed" });
-													bunSocket.close();
-												}
-											} else {
-												this.pluginManager.LogMessage(
-													"Yetkisiz paket alindi. Baglanti kesiliyor...",
-													"error",
-												);
-												bunSocket.close();
-											}
-											continue;
-										}
-										this.HandlePayload(payload);
-									} catch (err) {
-										const bridgeErr = new BridgeError(
-											`JSON parse hatasi: ${err}`,
-											{ line, error: err },
-										);
-										this.pluginManager.LogMessage(bridgeErr.message, "error");
-									}
-								}
+		while (true) {
+			try {
+				this.pluginManager.LogMessage(
+					`Metamod C++ bridge baglaniliyor (127.0.0.1:${this.port})...`,
+					"info",
+				);
+
+				const socket = await Bun.connect({
+					hostname: "127.0.0.1",
+					port: this.port,
+					socket: {
+						open: (socket) => {
+							const bunSocket = socket as BunSocket;
+							this.clientSocket = bunSocket;
+							this.socketBuffers.set(bunSocket, Buffer.alloc(0));
+
+							if (!bridgeToken) {
+								this.pluginManager.LogMessage(
+									"Metamod C++ bridge baglandi (Yetki gerekmiyor).",
+									"success",
+								);
+								this.authenticatedSockets.add(bunSocket);
+								this.bridge.SetSocket(bunSocket);
+								this.pluginManager.emit("BridgeConnected");
+							} else {
+								this.pluginManager.LogMessage(
+									"Metamod C++ bridge baglandi. Yetki gonderiliyor...",
+									"info",
+								);
+								// Send auth action
+								this.bridge.SetSocket(bunSocket);
+								this.bridge.Send({ action: "auth", token: bridgeToken });
 							}
-							this.socketBuffers.set(bunSocket, buffer);
-						} else {
-							// Length prefixed framing
+						},
+						data: (socket, data) => {
+							const bunSocket = socket as BunSocket;
+							let buffer = this.socketBuffers.get(bunSocket) || Buffer.alloc(0);
+							buffer = Buffer.concat([buffer, data]);
+
+							// Length prefixed framing (now mandatory)
 							while (buffer.length >= 4) {
 								const length = buffer.readUInt32BE(0);
 								if (buffer.length >= 4 + length) {
@@ -224,75 +173,72 @@ export class MetaBunApp {
 											bridgeToken &&
 											!this.authenticatedSockets.has(bunSocket)
 										) {
-											const authPayload = payload as unknown as AuthEvent;
+											const authPayload = payload as any;
 											if (
-												payload.event === "auth" ||
-												authPayload.action === "auth"
+												payload.event === "auth_success" ||
+												authPayload.action === "auth_success"
 											) {
-												if (authPayload.token === bridgeToken) {
-													this.pluginManager.LogMessage(
-														"Metamod C++ bridge yetkilendirildi.",
-														"success",
-													);
-													this.authenticatedSockets.add(bunSocket);
-													this.bridge.SetSocket(bunSocket);
-													this.pluginManager.emit("BridgeConnected");
-												} else {
-													this.pluginManager.LogMessage(
-														"Bridge yetkilendirme basarisiz. Yanlis token.",
-														"error",
-													);
-													bunSocket.close();
-												}
-											} else {
 												this.pluginManager.LogMessage(
-													"Yetkisiz paket alindi. Baglanti kesiliyor...",
+													"Metamod C++ bridge yetkilendirildi.",
+													"success",
+												);
+												this.authenticatedSockets.add(bunSocket);
+												this.pluginManager.emit("BridgeConnected");
+											} else if (
+												payload.event === "auth_failed" ||
+												authPayload.action === "auth_failed"
+											) {
+												this.pluginManager.LogMessage(
+													"Bridge yetkilendirme basarisiz. Yanlis token.",
 													"error",
 												);
 												bunSocket.close();
 											}
 											continue;
 										}
-
 										this.HandlePayload(payload);
 									} catch (err) {
-										const bridgeErr = new BridgeError(
-											`Ikili paket cozme hatasi: ${err}`,
-											{ protocol: this.protocol, error: err },
+										this.pluginManager.LogMessage(
+											`MsgPack parse hatasi: ${err}`,
+											"error",
 										);
-										this.pluginManager.LogMessage(bridgeErr.message, "error");
 									}
-								} else {
-									break;
-								}
+								} else break;
 							}
 							this.socketBuffers.set(bunSocket, buffer);
-						}
+						},
+						close: () => {
+							this.pluginManager.LogMessage(
+								"Metamod C++ bridge ayrildi.",
+								"warn",
+							);
+							this.clientSocket = null;
+							this.authenticatedSockets.clear();
+							this.bridge.SetSocket(null);
+						},
+						error: (_socket, error) => {
+							this.pluginManager.LogMessage(
+								`Bridge soket hatasi: ${error}`,
+								"error",
+							);
+						},
 					},
-					close: (socket: any) => {
-						this.pluginManager.LogMessage(
-							"Metamod C++ bridge ayrildi.",
-							"error",
-						);
-						const bunSocket = socket as BunSocket;
-						this.bridge.SetSocket(null);
-						this.socketBuffers.delete(bunSocket);
-						this.authenticatedSockets.delete(bunSocket);
-					},
-					error: (_socket: any, error: any) => {
-						this.pluginManager.LogMessage(
-							`Bridge soket hatasi: ${error}`,
-							"error",
-						);
-					},
-				},
-			} as any);
+				});
 
-			this.pluginManager.LogMessage(
-				`Soket dinleniyor: port ${this.port} (Protokol: ${this.protocol})`,
-				"info",
-			);
+				// Keep connection alive or wait for close
+				break;
+			} catch (e) {
+				// Retry after 2 seconds
+				await new Promise((r) => setTimeout(r, 2000));
+			}
+		}
+	}
 
+	/**
+	 * Starts the bridge and initializes the plugin manager loader.
+	 */
+	public async Start(): Promise<void> {
+		try {
 			// Start RCON Server
 			const rconPort =
 				Number(Bun.env["RCON_PORT"]) ||
@@ -332,6 +278,9 @@ export class MetaBunApp {
 			this.isTickLoopRunning = true;
 			this.nextTickTime = performance.now();
 			this.TickLoop();
+
+			// Connect to Metamod C++ Bridge
+			this.ConnectToBridge();
 		} catch (err) {
 			if (this.pluginManager) {
 				this.pluginManager.LogMessage(
@@ -355,6 +304,32 @@ export class MetaBunApp {
 			console.log(`[Bridge Debug] Recv: ${JSON.stringify(payload)}`);
 		}
 
+		const anyPayload = payload as any;
+		if (anyPayload.action === "console_cmd") {
+			const player = this.playerManager.GetByUserId(anyPayload.userid);
+			const args = anyPayload.args || [];
+			this.pluginManager.emit("ConsoleCommand", {
+				event: "ConsoleCommand",
+				command: args[0] || "",
+				args: args.slice(1),
+				client: player ? player.index : 0,
+			});
+			return;
+		}
+		if (anyPayload.action === "chat_cmd") {
+			// In CS2, chat comes as PlayerChat event. We simulate it here.
+			const player = this.playerManager.GetByUserId(anyPayload.userid);
+			this.pluginManager.emit("PlayerChat", {
+				event: "PlayerChat",
+				client: player ? player.index : 0,
+				text: anyPayload.text,
+				team_only: anyPayload.teamOnly || false,
+				teamOnly: anyPayload.teamOnly,
+				silent: anyPayload.silent || false,
+			});
+			return;
+		}
+
 		// Handle player management events
 		if (payload.event === "PlayerConnect") {
 			const conn = payload as PlayerConnectEvent;
@@ -374,51 +349,14 @@ export class MetaBunApp {
 			}
 			this.playerManager.AddPlayer(player);
 			this.pluginManager.LogMessage(
-				`Oyuncu bağlandı: ${conn.name} (ID: ${conn.client}${conn.isBot ? ", BOT" : ""})`,
-				"success",
+				`Oyuncu bağlandı: ${conn.name} (ID: ${conn.client})`,
+				"info",
 			);
 
-			// Steam Web API lookup
-			const steam64 = SteamIdTo64(conn.steamid);
-			const steamApiKey =
-				Bun.env["STEAM_API_KEY"] || this.settings.steam_api_key;
-			if (steam64 && steamApiKey) {
-				fetch(
-					`https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/?key=${steamApiKey}&steamids=${steam64}`,
-				)
-					.then((res) => res.json() as Promise<any>)
-					.then((data) => {
-						const playersList = data.response?.players;
-						if (playersList && playersList.length > 0) {
-							const profile = playersList[0]! as SteamProfile;
-							player.steamProfile = profile;
-						}
-					})
-					.catch((err) => {
-						console.error(
-							`[Steam Web API] Error fetching summary for ${conn.steamid}:`,
-							err,
-						);
-					});
-			}
-
-			// Discord Webhook logging
-			const logChannelId =
-				Bun.env["DISCORD_LOG_CHANNEL_ID"] ||
-				this.settings.discord?.log_channel_id;
-			if (logChannelId) {
-				const discordPayload = {
-					title: "📥 Oyuncu Bağlandı",
-					color: 65280, // Green
-					fields: [
-						{ name: "Oyuncu İsmi", value: conn.name, inline: true },
-						{ name: "SteamID", value: conn.steamid, inline: true },
-						{ name: "Client ID", value: String(conn.client), inline: true },
-					],
-					timestamp: new Date().toISOString(),
-				};
+			// Fetch steam profile data if not a bot
+			if (!player.isBot) {
 				discordService
-					.SendMessage("core", logChannelId, discordPayload)
+					.SendConnectLog(player)
 					.catch((err) =>
 						console.error("[Discord Logger] Connect log failed:", err),
 					);
@@ -426,101 +364,35 @@ export class MetaBunApp {
 
 			// Emit OnClientPostAdminCheck after data is loaded and admin flags checked
 			this.pluginManager.emit("OnClientPostAdminCheck", {
+				event: "OnClientPostAdminCheck",
 				client: conn.client,
-				player,
 			});
 		} else if (payload.event === "PlayerDisconnect") {
 			const disc = payload as PlayerDisconnectEvent;
 			const player = this.playerManager.Get(disc.client);
 			if (player) {
+				this.playerManager.RemovePlayer(disc.client);
 				this.pluginManager.LogMessage(
 					`Oyuncu ayrıldı: ${player.name} (ID: ${disc.client})`,
-					"error",
+					"info",
 				);
-				const logChannelId =
-					Bun.env["DISCORD_LOG_CHANNEL_ID"] ||
-					this.settings.discord?.log_channel_id;
-				if (logChannelId) {
-					const discordPayload = {
-						title: "📤 Oyuncu Ayrıldı",
-						color: 16711680, // Red
-						fields: [
-							{ name: "Oyuncu İsmi", value: player.name, inline: true },
-							{ name: "SteamID", value: player.steamId, inline: true },
-						],
-						timestamp: new Date().toISOString(),
-					};
-					discordService
-						.SendMessage("core", logChannelId, discordPayload)
-						.catch((err) =>
-							console.error("[Discord Logger] Disconnect log failed:", err),
-						);
-				}
-			} else {
-				console.log(`[Bun Core] Player disconnected: index ${disc.client}`);
 			}
-			this.playerManager.RemovePlayer(disc.client);
 		} else if (payload.event === "PlayerStatsUpdate") {
 			const stats = payload as PlayerStatsUpdateEvent;
-			const player = this.playerManager.Get(stats.client) as Player | undefined;
+			const player = this.playerManager.Get(stats.client);
 			if (player) {
-				player.UpdateHealth(stats.health);
-				player.UpdateArmor(stats.armor);
-				player.UpdateMoney(stats.money);
-				player.UpdateTeam(stats.team);
-				player.UpdateIsAlive(stats.isAlive);
-				player.UpdateLocation(stats.x, stats.y, stats.z);
-				player.UpdateAngles(stats.ax, stats.ay, stats.az);
-
-				// Update new advanced features
-				player.UpdateObserverState(
-					stats.isObserver ?? false,
-					stats.observerTarget ?? 0,
-				);
-				player.UpdateEntityFlags(stats.entityFlags ?? 0);
-				player.UpdateButtons(stats.buttons ?? 0);
-				player.UpdateAmmo(stats.clip1 ?? -1, stats.reserve1 ?? -1);
-				player.UpdateVelocity(stats.vx ?? 0, stats.vy ?? 0, stats.vz ?? 0);
-				if (stats.clanTag !== undefined) player.SetClanTag(stats.clanTag);
-				if (stats.ping !== undefined) player.SetPing(stats.ping);
-
-				if (stats.engineTime !== undefined) {
-					this.engineTime = stats.engineTime;
-				}
+				player.UpdateStats(stats);
 			}
-		} else if (payload.event === "ping") {
-			const pingPayload = payload as PingEvent;
-			this.bridge.Send({
-				action: "pong",
-				timestamp_ms: pingPayload.timestamp_ms,
-			});
-		} else if (payload.event === "BridgeLatencyUpdate") {
-			const latencyPayload = payload as BridgeLatencyUpdateEvent;
-			this.pluginManager.SetBridgeLatency(latencyPayload.latency);
 		}
 
+		// Update Tick count if engine tells us
+		if ((payload as any).tick !== undefined) {
+			this.currentTick = (payload as any).tick;
+			this.engineTime = (payload as any).time ?? this.currentTick / 128;
+		}
+
+		// General Event dispatch to plugins
 		this.pluginManager.emit(payload.event, payload);
-	}
-
-	/**
-	 * Helper for tests to access the PluginManager instance.
-	 */
-	public GetPluginManager(): PluginManager {
-		return this.pluginManager;
-	}
-
-	/**
-	 * Helper for tests to access the Bridge instance.
-	 */
-	public GetBridge(): Bridge {
-		return this.bridge;
-	}
-
-	/**
-	 * Helper for tests to access the AdminManager instance.
-	 */
-	public GetAdminManager(): AdminManager {
-		return this.adminManager;
 	}
 
 	/**
@@ -531,6 +403,10 @@ export class MetaBunApp {
 		if (this.tickTimeout) {
 			clearTimeout(this.tickTimeout);
 			this.tickTimeout = null;
+		}
+		if (this.clientSocket) {
+			this.clientSocket.close();
+			this.clientSocket = null;
 		}
 		if (this.server) {
 			this.server.stop();
@@ -543,6 +419,14 @@ export class MetaBunApp {
 		await this.pluginManager.Stop();
 	}
 
+	public GetPluginManager(): PluginManager {
+		return this.pluginManager;
+	}
+
+	public GetPlayerManager(): PlayerManager {
+		return this.playerManager;
+	}
+
 	/**
 	 * Gets the simulated engine uptime in seconds.
 	 */
@@ -551,7 +435,7 @@ export class MetaBunApp {
 	}
 
 	/**
-	 * Gets the total tick count elapsed since start.
+	 * Gets the current tick count.
 	 */
 	public GetCurrentTick(): number {
 		return this.currentTick;
