@@ -25,67 +25,8 @@ import {
 import type { GameEvent } from "../shared/types/events";
 import type { IPlayerManager } from "../shared/types/player";
 import type { IPluginManager } from "../shared/types/plugin";
+import { FormatColorTags, ToAnsi } from "../shared/colors";
 import { Menu } from "./menu";
-
-const COLOR_MAP: Record<string, string> = {
-	"{Default}": "\x01",
-	"{Red}": "\x02",
-	"{LightRed}": "\x03",
-	"{Green}": "\x04",
-	"{Lime}": "\x05",
-	"{LightGreen}": "\x06",
-	"{DarkRed}": "\x07",
-	"{Grey}": "\x08",
-	"{Yellow}": "\x09",
-	"{Gold}": "\x0A",
-	"{Blue}": "\x0B",
-	"{DarkBlue}": "\x0C",
-	"{Purple}": "\x0E",
-	"{Magenta}": "\x0F",
-	"{Cyan}": "\x10",
-};
-
-const ANSI_COLOR_MAP: Record<string, string> = {
-	"\x01": "\x1b[0m", // Default (Reset)
-	"\x02": "\x1b[31m", // Red
-	"\x03": "\x1b[91m", // Light Red
-	"\x04": "\x1b[32m", // Green
-	"\x05": "\x1b[92m", // Lime
-	"\x06": "\x1b[92m", // Light Green
-	"\x07": "\x1b[31m", // Dark Red
-	"\x08": "\x1b[90m", // Grey
-	"\x09": "\x1b[93m", // Yellow
-	"\x0A": "\x1b[33m", // Gold
-	"\x0B": "\x1b[34m", // Blue
-	"\x0C": "\x1b[94m", // Dark Blue
-	"\x0E": "\x1b[35m", // Purple
-	"\x0F": "\x1b[95m", // Magenta
-	"\x10": "\x1b[38;5;208m", // Orange/Cyan
-};
-
-/**
- * Format custom chat color tags into game color codes.
- *
- * @param message Chat message to format.
- */
-function FormatColorTags(message: string): string {
-	let formatted = message;
-	for (const [tag, code] of Object.entries(COLOR_MAP)) {
-		formatted = formatted.replaceAll(tag, code);
-	}
-	return formatted;
-}
-
-/**
- * Converts game color codes to ANSI escape sequences for terminal display.
- */
-function ToAnsi(message: string): string {
-	let formatted = message;
-	for (const [code, ansi] of Object.entries(ANSI_COLOR_MAP)) {
-		formatted = formatted.replaceAll(code, ansi);
-	}
-	return `${formatted}\x1b[0m`; // Ensure reset at end
-}
 
 /**
  * PluginContext provides a scoped, isolated API to each loaded plugin.
@@ -129,7 +70,7 @@ export class PluginContext implements IGameBridge {
 			RegConsoleCmd: (
 				command: string,
 				callback: CommandCallback,
-				flags?: string | null,
+				options?: CommandOptions | string | null,
 				description?: string | null,
 			) => void;
 			UnregConsoleCmd: (command: string) => void;
@@ -180,7 +121,7 @@ export class PluginContext implements IGameBridge {
 	public RegConsoleCmd(
 		command: string,
 		callback: CommandCallback,
-		flags?: string | null,
+		options?: CommandOptions | string | null,
 		description?: string | null,
 	): void {
 		const wrappedCallback = (client: number, args: string[]) => {
@@ -190,7 +131,7 @@ export class PluginContext implements IGameBridge {
 		this.commandRegistry.RegConsoleCmd(
 			command,
 			wrappedCallback,
-			flags,
+			options,
 			description,
 		);
 	}
@@ -657,6 +598,10 @@ export class PluginContext implements IGameBridge {
 
 	public FindConVar(name: string): ConVar | undefined {
 		return this.pluginManager.FindConVar(name);
+	}
+
+	public async QueryConVar(name: string): Promise<string | null> {
+		return this.pluginManager.QueryConVar(name);
 	}
 
 	// ClientPrefs / Cookie System

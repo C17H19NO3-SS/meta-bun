@@ -2,7 +2,7 @@ import { GetContext } from "../shared/context-store";
 import type { ClientCookie, ConVar, SDKHookType } from "../shared/types/bridge";
 import type { GameEvent } from "../shared/types/events";
 
-export { Command, Hook } from "../shared/decorators";
+export { Command, AdminCommand, Hook, HookEvent } from "../shared/decorators";
 export { BasePlugin } from "../shared/plugin";
 export { TaskRunner as Task } from "../shared/task";
 export type { IGameBridge } from "../shared/types/bridge";
@@ -227,6 +227,13 @@ export function FindConVar(name: string): ConVar | undefined {
 }
 
 /**
+ * Asynchronously queries a console variable value from the engine.
+ */
+export function QueryConVar(name: string): Promise<string | null> {
+	return GetContext().QueryConVar(name);
+}
+
+/**
  * Registers a client preference cookie.
  */
 export function RegClientCookie(
@@ -352,8 +359,22 @@ export function GetCurrentMap(): string {
 }
 
 /**
- * Gets the current Bun <-> Metamod bridge latency in milliseconds.
+ * Gets the current bridge latency in milliseconds.
  */
 export function GetBridgeLatency(): number {
 	return GetContext().GetBridgeLatency();
+}
+
+/**
+ * Gets a persisted state value.
+ */
+export function GetState<T>(key: string, initialValue: T): T {
+	return GetContext().GetState(key, initialValue);
+}
+
+/**
+ * Sets a persisted state value.
+ */
+export function SetState<T>(key: string, value: T): void {
+	GetContext().SetState(key, value);
 }

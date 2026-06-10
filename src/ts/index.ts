@@ -330,6 +330,18 @@ export class MetaBunApp {
 			return;
 		}
 
+		if (anyPayload.action === "cvar_value") {
+			const cvar = this.pluginManager.FindConVar(anyPayload.name);
+			if (cvar) {
+				cvar.UpdateValueFromBridge(anyPayload.value);
+			}
+			this.pluginManager.emit("cvar_value", {
+				name: anyPayload.name,
+				value: anyPayload.value,
+			});
+			return;
+		}
+
 		// Handle player management events
 		if (payload.event === "PlayerConnect") {
 			const conn = payload as PlayerConnectEvent;

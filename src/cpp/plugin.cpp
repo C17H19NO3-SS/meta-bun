@@ -496,6 +496,7 @@ void MetaBunBridge::ProcessMessage(const uint8_t *data, uint32_t size)
 	std::string message = "";
 	std::string name = "";
 	std::string description = "";
+	std::string value = "";
 	int flags = 0;
 
 	for (uint32_t i = 0; i < mapSize; i++) {
@@ -548,6 +549,7 @@ void MetaBunBridge::ProcessMessage(const uint8_t *data, uint32_t size)
 			else if (key == "message") message = valStr;
 			else if (key == "name") name = valStr;
 			else if (key == "description") description = valStr;
+			else if (key == "value") value = valStr;
 		} 
 		// Integer values (positive fixint, negative fixint, uint 8, uint 16, uint 32)
 		else if (vType <= 0x7f || vType >= 0xe0 || vType == 0xcc || vType == 0xcd || vType == 0xce) {
@@ -653,6 +655,41 @@ void MetaBunBridge::ProcessMessage(const uint8_t *data, uint32_t size)
 					engine->ClientPrintf(slot, "\n*** You were SLAPPED! ***\n");
 					break;
 				}
+			}
+		}
+	}
+	else if (action == "cvar_set") {
+		if (!name.empty()) {
+			// TODO: Move to main thread dispatcher
+			ConVarRef ref = icvar->FindConVar(name.c_str());
+			if (ref.IsValidRef()) {
+				ConVarRefAbstract abstractRef(ref);
+				abstractRef.SetString(value.c_str());
+			}
+		}
+	}
+	else if (action == "cvar_query") {
+		if (!name.empty()) {
+			// TODO: Move to main thread dispatcher
+			ConVarRef ref = icvar->FindConVar(name.c_str());
+			if (ref.IsValidRef()) {
+				ConVarRefAbstract abstractRef(ref);
+				CUtlString val = abstractRef.GetString();
+				
+				std::vector<uint8_t> buffer;
+				auto PackString = [&buffer](const std::string& str) {
+					size_t len = str.length();
+					if (len < 32) buffer.push_back(0xa0 | (uint8_t)len);
+					else { buffer.push_back(0xd9); buffer.push_back((uint8_t)len); }
+					buffer.insert(buffer.end(), str.begin(), str.end());
+				};
+
+				buffer.push_back(0x83); // map(3)
+				PackString("action"); PackString("cvar_value");
+				PackString("name"); PackString(name);
+				PackString("value"); PackString(val.Get());
+
+				Send(buffer.data(), buffer.size());
 			}
 		}
 	}

@@ -234,8 +234,10 @@ export interface IGameBridge {
 		defaultValue: string,
 		description?: string,
 	): ConVar;
-	/** Finds an existing console variable. */
+	/** Finds an existing console variable (Bun-side). */
 	FindConVar(name: string): ConVar | undefined;
+	/** Asynchronously queries a console variable value from the engine. */
+	QueryConVar(name: string): Promise<string | null>;
 
 	// Cookie System
 	/** Registers a persistent client cookie (ClientPrefs). */

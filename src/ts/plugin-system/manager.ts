@@ -1795,6 +1795,29 @@ export class PluginManager extends EventEmitter implements IGameBridge {
 		return this.convars.get(name);
 	}
 
+	public async QueryConVar(name: string): Promise<string | null> {
+		const localCvar = this.FindConVar(name);
+		if (localCvar) return localCvar.GetString();
+
+		return new Promise((resolve) => {
+			const timeout = setTimeout(() => {
+				this.removeListener("cvar_value", handler);
+				resolve(null);
+			}, 1000);
+
+			const handler = (data: { name: string; value: string }) => {
+				if (data.name === name) {
+					clearTimeout(timeout);
+					this.removeListener("cvar_value", handler);
+					resolve(data.value);
+				}
+			};
+
+			this.on("cvar_value", handler);
+			this.bridge.Send({ action: "cvar_query", name });
+		});
+	}
+
 	// --- ClientPrefs / Cookie System ---
 	public RegClientCookie(name: string, description: string): ClientCookie {
 		if (this.cookies.has(name)) {
