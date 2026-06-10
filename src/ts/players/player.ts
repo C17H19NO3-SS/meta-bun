@@ -57,7 +57,7 @@ export class Player extends EventEmitter implements IPlayer {
 	 * Initializes the Player session instance.
 	 */
 	constructor(
-		private bridge: Bridge,
+		public readonly bridge: Bridge,
 		private adminManager: IAdminManager,
 		private banManager: BanManager,
 		public readonly index: number,
