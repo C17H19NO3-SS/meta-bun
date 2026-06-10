@@ -27,6 +27,8 @@ import {
 	GetCmdReplySource,
 	ReplySource,
 	CreateTimer,
+	FindConVar,
+	QueryConVar,
 } from "meta-bun/core";
 
 const ALIASES_FILE = join(process.cwd(), "configs", "core", "map_aliases.json");
@@ -405,7 +407,7 @@ export default class AdminMenuPlugin extends BasePlugin {
 		}
 
 		const cvarName = args[0]!;
-		const localCvar = this.FindConVar(cvarName);
+		const localCvar = FindConVar(cvarName);
 
 		if (args.length === 1) {
 			// Query
@@ -413,7 +415,7 @@ export default class AdminMenuPlugin extends BasePlugin {
 			if (localCvar) {
 				value = localCvar.GetString();
 			} else {
-				value = await this.QueryConVar(cvarName);
+				value = await QueryConVar(cvarName);
 			}
 
 			if (value === null) {
@@ -428,7 +430,7 @@ export default class AdminMenuPlugin extends BasePlugin {
 				localCvar.SetString(newValue);
 			} else {
 				// Send direct server command for engine cvars
-				this.ServerCommand(`${cvarName} "${newValue}"`);
+				ServerCommand(`${cvarName} "${newValue}"`);
 			}
 			ReplyToCommand(client, `{Green}[MetaBun]{Default} {Yellow}"${cvarName}"{Default} yeni değeri: {Lime}"${newValue}"`);
 			LogAdminAction(client, null, `changed cvar ${cvarName} to ${newValue}`);
