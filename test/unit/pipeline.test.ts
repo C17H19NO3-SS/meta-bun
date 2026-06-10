@@ -50,7 +50,10 @@ describe("MessagePipeline", () => {
 
 		const context: MessageContext = {
 			type: "chat",
-			message: "hello",
+			text: "hello",
+			prefix: "",
+			target: 0,
+			sourcePlugin: "test",
 			blocked: false,
 		};
 
@@ -85,7 +88,10 @@ describe("MessagePipeline", () => {
 
 		const context: MessageContext = {
 			type: "chat",
-			message: "hello",
+			text: "hello",
+			prefix: "",
+			target: 0,
+			sourcePlugin: "test",
 			blocked: false,
 		};
 
@@ -114,7 +120,10 @@ describe("MessagePipeline", () => {
 
 		const context: MessageContext = {
 			type: "chat",
-			message: "hello",
+			text: "hello",
+			prefix: "",
+			target: 0,
+			sourcePlugin: "test",
 			blocked: false,
 		};
 
@@ -125,7 +134,7 @@ describe("MessagePipeline", () => {
 	it("should allow modifying the message content", async () => {
 		pipeline.register(
 			(ctx) => {
-				ctx.message = `[Prefix] ${ctx.message}`;
+				ctx.text = `[Prefix] ${ctx.text}`;
 			},
 			5,
 			"p1",
@@ -133,11 +142,14 @@ describe("MessagePipeline", () => {
 
 		const context: MessageContext = {
 			type: "chat",
-			message: "hello",
+			text: "hello",
+			prefix: "",
+			target: 0,
+			sourcePlugin: "test",
 			blocked: false,
 		};
 
 		await pipeline.execute(context);
-		expect(context.message).toBe("[Prefix] hello");
+		expect(context.text).toBe("[Prefix] hello");
 	});
 });

@@ -13,9 +13,24 @@ export interface MessageContext {
 	type: MessageType;
 
 	/**
-	 * The raw message content.
+	 * The actual message content.
 	 */
-	message: string;
+	text: string;
+
+	/**
+	 * Prefix to be added to the message.
+	 */
+	prefix: string;
+
+	/**
+	 * The target of the message (client index, 0 for all).
+	 */
+	target: number;
+
+	/**
+	 * The name of the plugin that originated the message.
+	 */
+	sourcePlugin: string;
 
 	/**
 	 * Whether the message processing should be blocked.

@@ -154,12 +154,11 @@ export class PluginContext implements IGameBridge {
 		return menu;
 	}
 
-	public LogMessage(
+	public async LogMessage(
 		message: string,
 		type: "info" | "success" | "error" | "warn" | "debug" = "info",
-	): void {
+	): Promise<void> {
 		// Theme Colors
-		const prefix = `{Red}[${this.pluginName}]{Default} `;
 		let typeColor = "{White}";
 
 		switch (type) {
@@ -177,8 +176,22 @@ export class PluginContext implements IGameBridge {
 				typeColor = "{White}";
 		}
 
-		const fullMessage = `${prefix}${typeColor}${message}`;
-		const formatted = FormatColorTags(fullMessage);
+		const ctx: MessageContext = {
+			type: "log",
+			text: message,
+			prefix: `{Red}[${this.pluginName}]{Default} ${typeColor}`,
+			target: 0,
+			sourcePlugin: this.pluginName,
+			blocked: false,
+		};
+
+		await this.pipeline.execute(ctx);
+
+		if (ctx.blocked) {
+			return;
+		}
+
+		const formatted = FormatColorTags(ctx.prefix + ctx.text);
 		const ansiFormatted = ToAnsi(formatted);
 		console.log(ansiFormatted);
 	}
@@ -187,8 +200,23 @@ export class PluginContext implements IGameBridge {
 		this.pluginManager.PrintToServerConsole(message);
 	}
 
-	public PrintHintText(client: number, message: string): void {
-		this.pluginManager.PrintHintText(client, message);
+	public async PrintHintText(client: number, message: string): Promise<void> {
+		const ctx: MessageContext = {
+			type: "hint",
+			text: message,
+			prefix: "",
+			target: client,
+			sourcePlugin: this.pluginName,
+			blocked: false,
+		};
+
+		await this.pipeline.execute(ctx);
+
+		if (ctx.blocked) {
+			return;
+		}
+
+		this.pluginManager.PrintHintText(ctx.target, ctx.prefix + ctx.text);
 	}
 
 	public IsVoteInProgress(): boolean {
@@ -225,46 +253,76 @@ export class PluginContext implements IGameBridge {
 	}
 
 	// Messaging
-	public PrintToChat(client: number, message: string): void {
+	public async PrintToChat(client: number, message: string): Promise<void> {
 		if (commandSourceStore.getStore() === "console") {
-			this.PrintToConsole(client, message);
+			return this.PrintToConsole(client, message);
+		}
+
+		const ctx: MessageContext = {
+			type: "chat",
+			text: message,
+			prefix: "",
+			target: client,
+			sourcePlugin: this.pluginName,
+			blocked: false,
+		};
+
+		await this.pipeline.execute(ctx);
+
+		if (ctx.blocked) {
 			return;
 		}
-		const formattedMessage = FormatColorTags(message);
-		if (client === 0) {
-			this.PrintToChatAll(formattedMessage);
+
+		const formattedMessage = FormatColorTags(ctx.prefix + ctx.text);
+		if (ctx.target === 0) {
+			this.bridge.Send({ action: "say", text: formattedMessage });
 			return;
 		}
-		const p = this.players.Get(client);
+		const p = this.players.Get(ctx.target);
 		if (p) {
 			p.Say(formattedMessage);
 		}
 	}
 
-	public PrintToChatAll(message: string): void {
-		this.bridge.Send({ action: "say", text: FormatColorTags(message) });
+	public async PrintToChatAll(message: string): Promise<void> {
+		return this.PrintToChat(0, message);
 	}
 
-	public PrintToConsole(client: number, message: string): void {
-		const formatted = FormatColorTags(message);
-		if (client === 0) {
-			this.LogMessage(formatted);
+	public async PrintToConsole(client: number, message: string): Promise<void> {
+		const ctx: MessageContext = {
+			type: "console",
+			text: message,
+			prefix: "",
+			target: client,
+			sourcePlugin: this.pluginName,
+			blocked: false,
+		};
+
+		await this.pipeline.execute(ctx);
+
+		if (ctx.blocked) {
+			return;
+		}
+
+		const formatted = FormatColorTags(ctx.prefix + ctx.text);
+		if (ctx.target === 0) {
+			const ansiFormatted = ToAnsi(formatted);
+			console.log(ansiFormatted);
 		} else {
 			const escaped = formatted.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
 			this.bridge.Send({
 				action: "client_command",
-				client: String(client),
+				client: String(ctx.target),
 				cmd: `echo "${escaped}"`,
 			});
 		}
 	}
 
-	public ReplyToCommand(client: number, message: string): void {
-		const formattedMessage = FormatColorTags(message);
+	public async ReplyToCommand(client: number, message: string): Promise<void> {
 		if (commandSourceStore.getStore() === "console" || client === 0) {
-			this.PrintToConsole(client, formattedMessage);
+			return this.PrintToConsole(client, message);
 		} else {
-			this.PrintToChat(client, formattedMessage);
+			return this.PrintToChat(client, message);
 		}
 	}
 
@@ -299,12 +357,16 @@ export class PluginContext implements IGameBridge {
 		this.pipeline.register(handler, priority, this.pluginName);
 	}
 
-	public TPrintToChat(client: number, key: string, ...args: unknown[]): void {
+	public async TPrintToChat(
+		client: number,
+		key: string,
+		...args: unknown[]
+	): Promise<void> {
 		const p = this.players.Get(client);
 		const lang = p?.GetLanguage() ?? "en";
 		const raw = translationManager.GetTranslation(this.pluginName, key, lang);
 		const formatted = translationManager.Format(raw, ...args);
-		this.PrintToChat(client, formatted);
+		return this.PrintToChat(client, formatted);
 	}
 
 	public LoadTranslations(filename: string): void {

@@ -74,19 +74,19 @@ export interface CommandOptions {
  */
 export interface IGameBridge {
 	/** Prints a message to the server's standard console. */
-	PrintToServerConsole(message: string): void;
+	PrintToServerConsole(message: string): void | Promise<void>;
 
 	/** Prints a message to a client's chat or all clients if 0. */
-	PrintToChat(client: number, message: string): void;
+	PrintToChat(client: number, message: string): void | Promise<void>;
 
 	/** Prints a message to all clients' chat. */
-	PrintToChatAll(message: string): void;
+	PrintToChatAll(message: string): void | Promise<void>;
 
 	/** Prints a message to a client's console. */
-	PrintToConsole(client: number, message: string): void;
+	PrintToConsole(client: number, message: string): void | Promise<void>;
 
 	/** Prints a hint message to a client's HUD. */
-	PrintHintText(client: number, message: string): void;
+	PrintHintText(client: number, message: string): void | Promise<void>;
 
 	/** Register a callback for an engine event. */
 	HookEvent<K extends keyof EventMap>(
@@ -104,13 +104,17 @@ export interface IGameBridge {
 	): void;
 
 	/** Responds to a command based on whether it was sent from chat or console. */
-	ReplyToCommand(client: number, message: string): void;
+	ReplyToCommand(client: number, message: string): void | Promise<void>;
 
 	/** Gets the current command reply source (chat or console). */
 	GetCmdReplySource(): ReplySource;
 
 	/** Multi-language chat print (simulated). */
-	TPrintToChat(client: number, key: string, ...args: unknown[]): void;
+	TPrintToChat(
+		client: number,
+		key: string,
+		...args: unknown[]
+	): void | Promise<void>;
 
 	/** Loads a translation file from the translations folder. */
 	LoadTranslations(filename: string): void;
