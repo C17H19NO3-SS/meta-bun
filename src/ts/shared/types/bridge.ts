@@ -5,7 +5,7 @@ import type { ReplySource } from "./enums";
  * GameAction format sent over the C++ Metamod bridge.
  */
 export interface GameAction {
-	action: string;
+	action: "dump_schema" | string;
 	[key: string]: string | number | boolean | undefined;
 }
 
