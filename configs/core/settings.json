@@ -11,5 +11,9 @@
 	"discord": {
 		"token": "ODg2MjIwNTk4Nzc3MzQ4MTE2.GHA3Sr.J4TcVG2VEqEpjAdMgnglbj0UHPVD9sMR13yn6I"
 	},
+	"dashboard": {
+		"port": 3000,
+		"password": "meta-bun-dashboard"
+	},
 	"steam_api_key": "88AD1FA8ECD20998D0D328A67BBA2092"
 }

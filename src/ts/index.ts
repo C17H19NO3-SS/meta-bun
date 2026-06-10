@@ -7,6 +7,7 @@ import { Bridge } from "./network/bridge";
 import { PlayerManager } from "./players/manager";
 import { Player } from "./players/player";
 import { PluginManager } from "./plugin-system/manager";
+import { DashboardServer } from "./addons/dashboard/server";
 import { DatabaseManager } from "./shared/database";
 import { discordService } from "./shared/discord";
 import { BridgeError } from "./shared/errors";
@@ -40,6 +41,7 @@ export class MetaBunApp {
 	private server: any = null;
 	private clientSocket: BunSocket | null = null;
 	private rconServer: any = null;
+	private dashboardServer: DashboardServer | null = null;
 	private debug = false;
 
 	// Tickrate system properties (128 tickrate)
@@ -234,6 +236,16 @@ export class MetaBunApp {
 				// Retry after 2 seconds
 				await new Promise((r) => setTimeout(r, 2000));
 			}
+		}
+
+		// Start Dashboard Server
+		const dashboardSettings = this.settings.dashboard;
+		if (dashboardSettings?.port) {
+			this.dashboardServer = new DashboardServer(
+				dashboardSettings.port,
+				dashboardSettings.password,
+			);
+			this.dashboardServer.start();
 		}
 	}
 
