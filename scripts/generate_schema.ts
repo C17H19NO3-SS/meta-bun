@@ -58,12 +58,40 @@ async function generateSchema() {
 										mkdirSync(generatedDir, { recursive: true });
 									}
 
-									// Create empty src/ts/generated/index.ts file
+									let fileContent = `// Auto-generated schema exports
+// @ts-nocheck
+`;
+
+									for (const [className, props] of Object.entries(schemaData)) {
+										fileContent += `\nexport class ${className} {\n`;
+										fileContent += `\tconstructor(public entityId: number) {}\n`;
+										for (const [propName, propData] of Object.entries(
+											props as any,
+										)) {
+											const type = (propData as any).type;
+											let tsType = "any";
+											if (type === "int" || type === "float") {
+												tsType = "number";
+											} else if (type === "bool" || type === "boolean") {
+												tsType = "boolean";
+											} else if (type === "string") {
+												tsType = "string";
+											}
+
+											fileContent += `\n\tget ${propName}(): ${tsType} {\n`;
+											fileContent += `\t\treturn globalThis.Bridge.Send({ action: "GetEntityProp", entityId: this.entityId, propName: "${propName}" });\n`;
+											fileContent += `\t}\n`;
+
+											fileContent += `\n\tset ${propName}(value: ${tsType}) {\n`;
+											fileContent += `\t\tglobalThis.Bridge.Send({ action: "SetEntityProp", entityId: this.entityId, propName: "${propName}", value });\n`;
+											fileContent += `\t}\n`;
+										}
+										fileContent += `}\n`;
+									}
+
+									// Create src/ts/generated/index.ts file
 									const indexPath = join(generatedDir, "index.ts");
-									writeFileSync(
-										indexPath,
-										"// Auto-generated schema exports\n",
-									);
+									writeFileSync(indexPath, fileContent);
 									console.log("[CLI] Successfully created", indexPath);
 
 									socket.end();
