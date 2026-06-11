@@ -254,6 +254,8 @@ export class MetaBunApp {
 				dashboardSettings.port,
 				dashboardSettings.password,
 				this.adminManager,
+				this.pluginManager,
+				this.playerManager,
 			);
 			this.dashboardServer.start();
 		}

@@ -1,6 +1,8 @@
 import { join } from "node:path";
 import { existsSync } from "node:fs";
 import type { AdminManager } from "../../admins/manager";
+import type { PluginManager } from "../../plugin-system/manager";
+import type { PlayerManager } from "../../players/manager";
 
 /**
  * DashboardServer provides a web interface and API for MetaBun server management.
@@ -28,11 +30,15 @@ export class DashboardServer {
 	 * @param port The port to listen on.
 	 * @param password Optional password for authentication (future use).
 	 * @param adminManager Reference to the AdminManager for permission checks.
+	 * @param pluginManager Reference to the PluginManager for server actions.
+	 * @param playerManager Reference to the PlayerManager for client management.
 	 */
 	constructor(
 		private port: number,
 		private password?: string,
 		private adminManager?: AdminManager,
+		private pluginManager?: PluginManager,
+		private playerManager?: PlayerManager,
 	) {}
 
 	/**
