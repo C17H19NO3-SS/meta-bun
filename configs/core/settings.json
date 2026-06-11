@@ -19,5 +19,9 @@
 		"port": 3001,
 		"token": "meta-bun-gateway-token"
 	},
-	"steam_api_key": "88AD1FA8ECD20998D0D328A67BBA2092"
+	"steam_api_key": "88AD1FA8ECD20998D0D328A67BBA2092",
+	"updater": {
+		"url": "https://raw.githubusercontent.com/C17H19NO3-SS/meta-bun/main/addons/meta-bun/gamedata.txt",
+		"interval": 24
+	}
 }

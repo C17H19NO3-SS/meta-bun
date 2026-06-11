@@ -9,6 +9,7 @@ import { Player } from "./players/player";
 import { PluginManager } from "./plugin-system/manager";
 import { DashboardServer } from "./addons/dashboard/server";
 import { GatewayServer } from "./addons/gateway/websocket";
+import { UpdaterService } from "./addons/updater/service";
 import { DatabaseManager } from "./shared/database";
 import { discordService } from "./shared/discord";
 import { BridgeError } from "./shared/errors";
@@ -44,6 +45,7 @@ export class MetaBunApp {
 	private rconServer: any = null;
 	private dashboardServer: DashboardServer | null = null;
 	private gatewayServer: GatewayServer | null = null;
+	private updaterService: UpdaterService | null = null;
 	private debug = false;
 
 	// Tickrate system properties (128 tickrate)
@@ -99,6 +101,7 @@ export class MetaBunApp {
 		if (existsSync(configPath)) {
 			try {
 				this.settings = JSON.parse(readFileSync(configPath, "utf-8"));
+				this.updaterService = new UpdaterService(this.pluginManager, this.settings);
 				if (this.pluginManager) {
 					this.pluginManager.LogMessage(
 						"Merkezi ayarlar yuklendi: configs/core/settings.json",
@@ -307,6 +310,11 @@ export class MetaBunApp {
 			this.nextTickTime = performance.now();
 			this.TickLoop();
 
+			// Start Auto-Updater Service
+			if (this.updaterService) {
+				this.updaterService.start();
+			}
+
 			// Connect to Metamod C++ Bridge
 			this.ConnectToBridge();
 		} catch (err) {
@@ -464,6 +472,10 @@ export class MetaBunApp {
 		if (this.rconServer) {
 			this.rconServer.stop();
 			this.rconServer = null;
+		}
+		if (this.updaterService) {
+			this.updaterService.stop();
+			this.updaterService = null;
 		}
 		await this.pluginManager.Stop();
 	}
