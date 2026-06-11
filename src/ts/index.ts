@@ -8,6 +8,7 @@ import { PlayerManager } from "./players/manager";
 import { Player } from "./players/player";
 import { PluginManager } from "./plugin-system/manager";
 import { DashboardServer } from "./addons/dashboard/server";
+import { GatewayServer } from "./addons/gateway/websocket";
 import { DatabaseManager } from "./shared/database";
 import { discordService } from "./shared/discord";
 import { BridgeError } from "./shared/errors";
@@ -42,6 +43,7 @@ export class MetaBunApp {
 	private clientSocket: BunSocket | null = null;
 	private rconServer: any = null;
 	private dashboardServer: DashboardServer | null = null;
+	private gatewayServer: GatewayServer | null = null;
 	private debug = false;
 
 	// Tickrate system properties (128 tickrate)
@@ -247,6 +249,17 @@ export class MetaBunApp {
 			);
 			this.dashboardServer.start();
 		}
+
+		// Start Gateway Server
+		const gatewaySettings = this.settings.gateway;
+		if (gatewaySettings?.port) {
+			this.gatewayServer = new GatewayServer(
+				gatewaySettings.port,
+				gatewaySettings.token || "meta-bun-gateway-token",
+				this.pluginManager,
+			);
+			this.gatewayServer.start();
+		}
 	}
 
 	/**
@@ -440,9 +453,13 @@ export class MetaBunApp {
 			this.clientSocket.close();
 			this.clientSocket = null;
 		}
-		if (this.server) {
-			this.server.stop();
-			this.server = null;
+		if (this.dashboardServer) {
+			this.dashboardServer.stop();
+			this.dashboardServer = null;
+		}
+		if (this.gatewayServer) {
+			this.gatewayServer.stop();
+			this.gatewayServer = null;
 		}
 		if (this.rconServer) {
 			this.rconServer.stop();
