@@ -212,8 +212,20 @@ export interface IGameBridge {
 	GetEntitiesInRadius(origin: { x: number; y: number; z: number }, radius: number): Promise<number[]>;
 	/** Finds the first entity with a specific classname. */
 	FindEntityByClassname(classname: string): Promise<number>;
+	/** Creates a new entity on the server. */
+	CreateEntity(classname: string): void;
+	/** Sets a specific property value on an entity. */
+	SetEntityProp(entityId: number, propName: string, value: any): void;
 	/** Sends a high-level JSON object as a Protobuf message to the engine. */
 	SendProtobuf(msgName: string, data: Record<string, unknown>): void;
+
+	// Bot Management
+	/** Adds a bot to the server. */
+	BotAdd(): void;
+	/** Kicks all bots from the server. */
+	BotKickAll(): void;
+	/** Kicks a specific bot from the server. */
+	BotKick(client: number): void;
 
 	// Permissions
 	/** Checks if a client has specific admin permission flags. */

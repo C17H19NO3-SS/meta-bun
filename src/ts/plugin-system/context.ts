@@ -271,12 +271,41 @@ export class PluginContext implements IGameBridge {
 		});
 	}
 
+	public CreateEntity(classname: string): void {
+		this.bridge.Send({
+			action: "CreateEntity",
+			classname,
+		});
+	}
+
+	public SetEntityProp(entityId: number, propName: string, value: any): void {
+		this.bridge.Send({
+			action: "SetEntityProp",
+			entityId,
+			propName,
+			value,
+		});
+	}
+
 	public SendProtobuf(msgName: string, data: Record<string, unknown>): void {
 		this.bridge.Send({
 			action: "send_protobuf",
 			msg_name: msgName,
 			data,
 		});
+	}
+
+	// Bot Management
+	public BotAdd(): void {
+		this.bridge.Send({ action: "bot_add" });
+	}
+
+	public BotKickAll(): void {
+		this.bridge.Send({ action: "bot_kick_all" });
+	}
+
+	public BotKick(client: number): void {
+		this.bridge.Send({ action: "bot_kick", client });
 	}
 
 	public async PrintToChat(client: number, message: string): Promise<void> {
