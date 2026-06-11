@@ -51,7 +51,7 @@ bool MetaBunBridge::Load(PluginId id, ISmmAPI *ismm, char *error, size_t maxlen,
 	PLUGIN_SAVEVARS();
 	this->ismm = ismm;
 
-	Log("Plugin loading...");
+	printf("[METABUN] Plugin loading (ST)... version %s\n", GetVersion());
 
 	GET_V_IFACE_CURRENT(GetEngineFactory, engine, IVEngineServer, INTERFACEVERSION_VENGINESERVER);
 	GET_V_IFACE_CURRENT(GetServerFactory, gameclients, IServerGameClients, INTERFACEVERSION_SERVERGAMECLIENTS);
@@ -91,22 +91,20 @@ bool MetaBunBridge::Load(PluginId id, ISmmAPI *ismm, char *error, size_t maxlen,
 	m_ListenSocket = -1;
 	m_ClientSocket = -1;
 	m_Connected = false;
-	m_ShouldExit = false;
 	m_BunPid = -1;
 
 	StartServer();
 	SpawnBun();
 
-	Log("Plugin loaded successfully (Late: %s)", late ? "yes" : "no");
+	printf("[METABUN] Plugin loaded successfully.\n");
 
 	return true;
 }
 
 bool MetaBunBridge::Unload(char *error, size_t maxlen)
 {
-	Log("Plugin unloading...");
+	printf("[METABUN] Plugin unloading...\n");
 	
-	m_ShouldExit = true;
 	StopBun();
 	Disconnect();
 	
@@ -121,7 +119,6 @@ bool MetaBunBridge::Unload(char *error, size_t maxlen)
 
 	// Unregister and delete dynamic commands
 	{
-		std::lock_guard<std::mutex> lock(m_CmdMutex);
 		for (auto const& [name, cmd] : m_DynamicCommands) {
 			icvar->UnregisterConCommandCallbacks(cmd->ref);
 			delete cmd;
@@ -129,10 +126,6 @@ bool MetaBunBridge::Unload(char *error, size_t maxlen)
 		m_DynamicCommands.clear();
 	}
 
-	if (m_ReceiveThread.joinable())
-	{
-		m_ReceiveThread.join();
-	}
 	return true;
 }
 
@@ -144,6 +137,9 @@ static std::string ToLower(const std::string& str) {
 
 void MetaBunBridge::Hook_DispatchConCommand(ConCommandRef cmd, const CCommandContext &ctx, const CCommand &args)
 {
+	// Aggressively poll bridge on any command dispatch
+	UpdateBridge();
+
 	if (!m_Connected || !cmd.IsValidRef())
 	{
 		RETURN_META(MRES_IGNORED);
@@ -208,7 +204,6 @@ void MetaBunBridge::Hook_DispatchConCommand(ConCommandRef cmd, const CCommandCon
 				std::string cmdNamePart = (spacePos == std::string::npos) ? text.substr(1) : text.substr(1, spacePos - 1);
 				std::string lowerCmd = ToLower(cmdNamePart);
 				
-				std::lock_guard<std::mutex> lock(m_CmdMutex);
 				auto it = m_DynamicCommands.find(lowerCmd);
 				if (it != m_DynamicCommands.end()) {
 					if (it->second->bSilent) {
@@ -282,14 +277,18 @@ void MetaBunBridge::AllPluginsLoaded()
 
 void MetaBunBridge::StartServer()
 {
-	Log("Starting bridge server on 127.0.0.1:27013...");
+	printf("[METABUN] Starting bridge server on 127.0.0.1:27013...\n");
 
 	m_ListenSocket = socket(AF_INET, SOCK_STREAM, 0);
 	if (m_ListenSocket == -1)
 	{
-		Log("Failed to create socket: %s", strerror(errno));
+		printf("[METABUN] Failed to create socket: %s\n", strerror(errno));
 		return;
 	}
+
+	// Set non-blocking
+	int flags = fcntl(m_ListenSocket, F_GETFL, 0);
+	fcntl(m_ListenSocket, F_SETFL, flags | O_NONBLOCK);
 
 	int opt = 1;
 	setsockopt(m_ListenSocket, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
@@ -301,7 +300,7 @@ void MetaBunBridge::StartServer()
 
 	if (bind(m_ListenSocket, (struct sockaddr *)&address, sizeof(address)) < 0)
 	{
-		Log("Bind failed: %s", strerror(errno));
+		printf("[METABUN] Bind failed: %s\n", strerror(errno));
 		close(m_ListenSocket);
 		m_ListenSocket = -1;
 		return;
@@ -309,18 +308,16 @@ void MetaBunBridge::StartServer()
 
 	if (listen(m_ListenSocket, 3) < 0)
 	{
-		Log("Listen failed: %s", strerror(errno));
+		printf("[METABUN] Listen failed: %s\n", strerror(errno));
 		close(m_ListenSocket);
 		m_ListenSocket = -1;
 		return;
 	}
-
-	m_ReceiveThread = std::thread(&MetaBunBridge::ReceiveThread, this);
 }
 
 void MetaBunBridge::SpawnBun()
 {
-	Log("Spawning Bun process...");
+	printf("[METABUN] Spawning Bun process...\n");
 
 	m_BunPid = fork();
 	if (m_BunPid == 0)
@@ -342,11 +339,11 @@ void MetaBunBridge::SpawnBun()
 	}
 	else if (m_BunPid < 0)
 	{
-		Log("Failed to fork Bun process: %s", strerror(errno));
+		printf("[METABUN] Failed to fork Bun process: %s\n", strerror(errno));
 	}
 	else
 	{
-		Log("Bun process spawned with PID: %d", m_BunPid);
+		printf("[METABUN] Bun process spawned with PID: %d\n", m_BunPid);
 	}
 }
 
@@ -359,7 +356,7 @@ void MetaBunBridge::StopBun()
 		for (int i = 0; i < 10; i++) {
 			pid_t res = waitpid(m_BunPid, &status, WNOHANG);
 			if (res != 0) break;
-			std::this_thread::sleep_for(std::chrono::milliseconds(100));
+			usleep(100000); // 100ms
 		}
 		if (waitpid(m_BunPid, &status, WNOHANG) == 0) {
 			kill(m_BunPid, SIGKILL);
@@ -417,67 +414,63 @@ void MetaBunBridge::SendAction(const char *action, const char *extraKey, const c
 	Send(buffer.data(), buffer.size());
 }
 
-void MetaBunBridge::ReceiveThread()
+void MetaBunBridge::UpdateBridge()
 {
-	while (!m_ShouldExit)
-	{
-		if (m_ListenSocket == -1) {
-			std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-			continue;
-		}
+	if (m_ListenSocket == -1) return;
 
+	// Accept new connections
+	if (!m_Connected)
+	{
 		struct sockaddr_in address;
 		int addrlen = sizeof(address);
-		struct timeval tv;
-		tv.tv_sec = 1;
-		tv.tv_usec = 0;
-		fd_set readfds;
-		FD_ZERO(&readfds);
-		FD_SET(m_ListenSocket, &readfds);
-
-		int res = select(m_ListenSocket + 1, &readfds, NULL, NULL, &tv);
-		if (res > 0)
+		int newSocket = accept(m_ListenSocket, (struct sockaddr *)&address, (socklen_t*)&addrlen);
+		if (newSocket >= 0)
 		{
-			int newSocket = accept(m_ListenSocket, (struct sockaddr *)&address, (socklen_t*)&addrlen);
-			if (newSocket >= 0)
+			// Set client socket to non-blocking
+			int flags = fcntl(newSocket, F_GETFL, 0);
+			fcntl(newSocket, F_SETFL, flags | O_NONBLOCK);
+
+			m_ClientSocket = newSocket;
+			m_Connected = true;
+			printf("[METABUN] Bun client connected!\n");
+		}
+	}
+
+	// Receive data
+	if (m_Connected && m_ClientSocket != -1)
+	{
+		while (true)
+		{
+			uint8_t buffer[4096];
+			ssize_t bytesRead = recv(m_ClientSocket, buffer, sizeof(buffer), 0);
+			if (bytesRead > 0)
 			{
-				if (m_Connected) {
-					close(newSocket);
-					continue;
-				}
-
-				m_ClientSocket = newSocket;
-				m_Connected = true;
-				Log("Bun client connected!");
-
-				std::vector<uint8_t> receiveBuffer;
-				while (!m_ShouldExit && m_Connected)
+				m_ReceiveBuffer.insert(m_ReceiveBuffer.end(), buffer, buffer + bytesRead);
+				while (m_ReceiveBuffer.size() >= 4)
 				{
-					uint8_t buffer[4096];
-					ssize_t bytesRead = recv(m_ClientSocket, buffer, sizeof(buffer), 0);
-					if (bytesRead > 0)
+					uint32_t length = ntohl(*(uint32_t *)m_ReceiveBuffer.data());
+					if (m_ReceiveBuffer.size() >= 4 + length)
 					{
-						receiveBuffer.insert(receiveBuffer.end(), buffer, buffer + bytesRead);
-						while (receiveBuffer.size() >= 4)
-						{
-							uint32_t length = ntohl(*(uint32_t *)receiveBuffer.data());
-							if (receiveBuffer.size() >= 4 + length)
-							{
-								ProcessMessage(receiveBuffer.data() + 4, length);
-								receiveBuffer.erase(receiveBuffer.begin(), receiveBuffer.begin() + 4 + length);
-							}
-							else break;
-						}
+						ProcessMessage(m_ReceiveBuffer.data() + 4, length);
+						m_ReceiveBuffer.erase(m_ReceiveBuffer.begin(), m_ReceiveBuffer.begin() + 4 + length);
 					}
-					else if (bytesRead == 0 || (bytesRead == -1 && errno != EINTR))
-					{
-						m_Connected = false;
-						Log("Bun client disconnected.");
-						close(m_ClientSocket);
-						m_ClientSocket = -1;
-						break;
-					}
+					else break;
 				}
+			}
+			else if (bytesRead == 0)
+			{
+				printf("[METABUN] Bun client disconnected (EOF).\n");
+				Disconnect();
+				break;
+			}
+			else if (bytesRead == -1)
+			{
+				if (errno != EWOULDBLOCK && errno != EAGAIN && errno != EINTR)
+				{
+					printf("[METABUN] Bun client disconnected (Error: %s).\n", strerror(errno));
+					Disconnect();
+				}
+				break;
 			}
 		}
 	}
@@ -492,14 +485,11 @@ void MetaBunBridge::ProcessMessage(const uint8_t *data, uint32_t size)
 	uint32_t mapSize = 0;
 	
 	// MessagePack Map Parsing
-	// 0x80 - 0x8f: fixmap (up to 15 elements)
 	if (type >= 0x80 && type <= 0x8f) mapSize = type & 0x0f;
-	// 0xde: map 16 (up to 65535 elements)
 	else if (type == 0xde) { 
 		if (pos + 2 > size) return;
 		mapSize = (data[pos] << 8) | data[pos+1]; pos += 2; 
 	}
-	// 0xdf: map 32
 	else if (type == 0xdf) { 
 		if (pos + 4 > size) return;
 		mapSize = (data[pos] << 24) | (data[pos+1] << 16) | (data[pos+2] << 8) | data[pos+3]; pos += 4; 
@@ -521,18 +511,14 @@ void MetaBunBridge::ProcessMessage(const uint8_t *data, uint32_t size)
 	for (uint32_t i = 0; i < mapSize; i++) {
 		if (pos >= size) break;
 		
-		// Parse Key (String)
 		std::string key = "";
 		uint8_t kType = data[pos++];
 		uint32_t kLen = 0;
-		// 0xa0 - 0xbf: fixstr (up to 31 bytes)
 		if (kType >= 0xa0 && kType <= 0xbf) kLen = kType & 0x1f;
-		// 0xd9: str 8
 		else if (kType == 0xd9) { 
 			if (pos >= size) return;
 			kLen = data[pos++]; 
 		}
-		// 0xda: str 16
 		else if (kType == 0xda) { 
 			if (pos + 2 > size) return;
 			kLen = (data[pos] << 8) | data[pos+1]; pos += 2; 
@@ -546,8 +532,6 @@ void MetaBunBridge::ProcessMessage(const uint8_t *data, uint32_t size)
 		if (pos >= size) return;
 		uint8_t vType = data[pos++];
 		
-		// Parse Value
-		// String values (fixstr, str 8, str 16)
 		if ((vType >= 0xa0 && vType <= 0xbf) || vType == 0xd9 || vType == 0xda) {
 			uint32_t vLen = 0;
 			if (vType >= 0xa0 && vType <= 0xbf) vLen = vType & 0x1f;
@@ -570,7 +554,6 @@ void MetaBunBridge::ProcessMessage(const uint8_t *data, uint32_t size)
 			else if (key == "description") description = valStr;
 			else if (key == "value") value = valStr;
 		} 
-		// Integer values (positive fixint, negative fixint, uint 8, uint 16, uint 32)
 		else if (vType <= 0x7f || vType >= 0xe0 || vType == 0xcc || vType == 0xcd || vType == 0xce) {
 			int valInt = 0;
 			if (vType <= 0x7f) valInt = vType;
@@ -591,7 +574,6 @@ void MetaBunBridge::ProcessMessage(const uint8_t *data, uint32_t size)
 			else if (key == "damage") damage = valInt;
 			else if (key == "flags") flags = valInt;
 		}
-		// Boolean values
 		else if (vType == 0xc2 || vType == 0xc3) {
 			bool valBool = (vType == 0xc3);
 			if (key == "silent") silent = valBool;
@@ -600,8 +582,7 @@ void MetaBunBridge::ProcessMessage(const uint8_t *data, uint32_t size)
 	
 	if (action == "server_cmd") {
 		if (!cmd.empty()) {
-			std::lock_guard<std::mutex> lock(m_QueueMutex);
-			m_CommandQueue.push_back(cmd);
+			engine->ServerCommand(cmd.c_str());
 		}
 	} 
 	else if (action == "auth") {
@@ -609,42 +590,36 @@ void MetaBunBridge::ProcessMessage(const uint8_t *data, uint32_t size)
 	}
 	else if (action == "register_command") {
 		if (!name.empty()) {
-			// TODO: Move to main thread dispatcher. Source 2 engine calls MUST be on the main thread.
-			// Current implementation calls RegisterConCommand from ReceiveThread.
-			std::lock_guard<std::mutex> lock(m_CmdMutex);
 			std::string lowerName = ToLower(name);
-			if (m_DynamicCommands.find(lowerName) == m_DynamicCommands.end()) {
-				MetaBunCommand *mbCmd = new MetaBunCommand();
-				mbCmd->name = lowerName;
-				mbCmd->help = description.empty() ? "MetaBun Command" : description;
-				mbCmd->bSilent = silent;
+			if (m_DynamicCommands.find(lowerName) == m_DynamicCommands.end())
+			{
+				MetaBunCommand* bunCmd = new MetaBunCommand();
+				bunCmd->name = lowerName;
+				bunCmd->help = description.empty() ? "MetaBun Command" : description;
+				bunCmd->bSilent = silent;
 				
 				ConCommandCreation_t setup;
-				setup.m_pszName = mbCmd->name.c_str();
-				setup.m_pszHelpString = mbCmd->help.c_str();
+				setup.m_pszName = bunCmd->name.c_str();
+				setup.m_pszHelpString = bunCmd->help.c_str();
 				setup.m_nFlags = flags;
 				setup.m_CBInfo = ConCommandCallbackInfo_t(DynamicCommandCallback);
-				setup.m_CompletionCBInfo = CompletionCallbackInfo_t();
-
-				mbCmd->ref = icvar->RegisterConCommand(setup);
-				m_DynamicCommands[lowerName] = mbCmd;
 				
-				Log("Engine-registered command: %s (flags: %d, silent: %s)", mbCmd->name.c_str(), flags, mbCmd->bSilent ? "yes" : "no");
+				bunCmd->ref = icvar->RegisterConCommand(setup);
+				m_DynamicCommands[bunCmd->name] = bunCmd;
+				printf("[METABUN] Registered command: %s\n", bunCmd->name.c_str());
 			}
 		}
 	}
 	else if (action == "unregister_command") {
 		if (!name.empty()) {
-			// TODO: Move to main thread dispatcher. Source 2 engine calls MUST be on the main thread.
-			std::lock_guard<std::mutex> lock(m_CmdMutex);
 			std::string lowerName = ToLower(name);
 			auto it = m_DynamicCommands.find(lowerName);
-			if (it != m_DynamicCommands.end()) {
-				MetaBunCommand *cmd = it->second;
-				icvar->UnregisterConCommandCallbacks(cmd->ref);
-				delete cmd;
+			if (it != m_DynamicCommands.end())
+			{
+				icvar->UnregisterConCommandCallbacks(it->second->ref);
+				delete it->second;
 				m_DynamicCommands.erase(it);
-				Log("Unregistered command: %s", lowerName.c_str());
+				printf("[METABUN] Unregistered command: %s\n", lowerName.c_str());
 			}
 		}
 	}
@@ -655,8 +630,7 @@ void MetaBunBridge::ProcessMessage(const uint8_t *data, uint32_t size)
 		if (!message.empty()) {
 			char cmdBuf[1280];
 			snprintf(cmdBuf, sizeof(cmdBuf), "say %s", message.c_str());
-			std::lock_guard<std::mutex> lock(m_QueueMutex);
-			m_CommandQueue.push_back(cmdBuf);
+			engine->ServerCommand(cmdBuf);
 		}
 	}
 	else if (action == "kick_client") {
@@ -670,49 +644,12 @@ void MetaBunBridge::ProcessMessage(const uint8_t *data, uint32_t size)
 			}
 		}
 	}
-	else if (action == "slap_player") {
-		if (userid != -1) {
-			for (int i = 0; i < 64; i++) {
-				CPlayerSlot slot(i);
-				if (engine->GetPlayerUserId(slot).Get() == userid) {
-					engine->ClientPrintf(slot, "\n*** You were SLAPPED! ***\n");
-					break;
-				}
-			}
-		}
-	}
 	else if (action == "cvar_set") {
 		if (!name.empty()) {
-			// TODO: Move to main thread dispatcher
 			ConVarRef ref = icvar->FindConVar(name.c_str());
 			if (ref.IsValidRef()) {
 				ConVarRefAbstract abstractRef(ref);
 				abstractRef.SetString(value.c_str(), CSplitScreenSlot(0));
-			}
-		}
-	}
-	else if (action == "cvar_query") {
-		if (!name.empty()) {
-			// TODO: Move to main thread dispatcher
-			ConVarRef ref = icvar->FindConVar(name.c_str());
-			if (ref.IsValidRef()) {
-				ConVarRefAbstract abstractRef(ref);
-				CUtlString val = abstractRef.GetString(CSplitScreenSlot(0));
-				
-				std::vector<uint8_t> buffer;
-				auto PackString = [&buffer](const std::string& str) {
-					size_t len = str.length();
-					if (len < 32) buffer.push_back(0xa0 | (uint8_t)len);
-					else { buffer.push_back(0xd9); buffer.push_back((uint8_t)len); }
-					buffer.insert(buffer.end(), str.begin(), str.end());
-				};
-
-				buffer.push_back(0x83); // map(3)
-				PackString("action"); PackString("cvar_value");
-				PackString("name"); PackString(name);
-				PackString("value"); PackString(val.Get());
-
-				Send(buffer.data(), buffer.size());
 			}
 		}
 	}
@@ -731,20 +668,5 @@ const char *MetaBunBridge::GetLogTag() { return "METABUN"; }
 
 void MetaBunBridge::OnGameFrame(bool simulating, bool bFirstTick, bool bLastTick)
 {
-	if (m_CommandQueue.empty())
-	{
-		return;
-	}
-
-	std::vector<std::string> localQueue;
-	{
-		std::lock_guard<std::mutex> lock(m_QueueMutex);
-		localQueue = std::move(m_CommandQueue);
-		m_CommandQueue.clear();
-	}
-
-	for (const std::string& cmd : localQueue)
-	{
-		engine->ServerCommand(cmd.c_str());
-	}
+	UpdateBridge();
 }

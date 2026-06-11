@@ -1,4 +1,4 @@
-# Install script for directory: /root/meta-bun/src/cpp
+# Install script for directory: /workspace/src/cpp
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
@@ -50,5 +50,5 @@ endif()
 
 string(REPLACE ";" "\n" CMAKE_INSTALL_MANIFEST_CONTENT
        "${CMAKE_INSTALL_MANIFEST_FILES}")
-file(WRITE "/root/meta-bun/src/cpp/build/${CMAKE_INSTALL_MANIFEST}"
+file(WRITE "/workspace/src/cpp/build/${CMAKE_INSTALL_MANIFEST}"
      "${CMAKE_INSTALL_MANIFEST_CONTENT}")

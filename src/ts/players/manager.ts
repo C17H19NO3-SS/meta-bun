@@ -28,8 +28,13 @@ export class PlayerManager implements IPlayerManager {
 	 *
 	 * @param db The DatabaseManager instance.
 	 * @param enableCheckpointing Whether stats auto-save checkpoints are run periodically.
+	 * @param steamApiKey Optional Steam Web API key.
 	 */
-	constructor(db?: DatabaseManager, enableCheckpointing: boolean = false) {
+	constructor(
+		db?: DatabaseManager,
+		enableCheckpointing: boolean = false,
+		private steamApiKey?: string,
+	) {
 		this.db = db || new DatabaseManager();
 		this.LoadReservedSlotsConfig();
 		if (enableCheckpointing) {

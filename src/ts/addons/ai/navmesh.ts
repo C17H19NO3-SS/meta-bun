@@ -10,87 +10,58 @@ export interface Vector {
 }
 
 /**
- * NavMesh class manages the navigation graph and pathfinding via a worker.
+ * NavMesh class manages the navigation graph and pathfinding synchronously.
  */
 export class NavMesh {
-	private worker: Worker | null = null;
-	private pendingPaths: Map<string, (path: Vector[]) => void> = new Map();
-	private requestId = 0;
+	private navMeshData: Uint8Array | null = null;
 
 	constructor() {
-		this.InitializeWorker();
-	}
-
-	/**
-	 * Initializes the pathfinder worker.
-	 */
-	private InitializeWorker() {
-		const workerPath = join(import.meta.dir, "pathfinder.worker.ts");
-		this.worker = new Worker(workerPath);
-
-		this.worker.onmessage = (event) => {
-			const { id, path, error } = event.data;
-			const resolve = this.pendingPaths.get(id);
-			if (resolve) {
-				if (error) {
-					console.error(`[NavMesh] Pathfinding error for request ${id}: ${error}`);
-					resolve([]);
-				} else {
-					resolve(path);
-				}
-				this.pendingPaths.delete(id);
-			}
-		};
-
-		this.worker.onerror = (err) => {
-			console.error("[NavMesh] Worker error:", err);
-		};
+		// Worker initialization removed
 	}
 
 	/**
 	 * Parses and updates the NavMesh data.
-	 * 
+	 *
 	 * @param data The binary dump from C++ bridge.
 	 */
 	public ParseNavMesh(data: Buffer) {
-		if (this.worker) {
-			this.worker.postMessage({ type: "update", data }, [data.buffer as ArrayBuffer]);
+		try {
+			this.navMeshData = new Uint8Array(data);
+			console.log("[NavMesh] NavMesh data received and updated.");
+		} catch (error) {
+			console.error("[NavMesh] Error updating NavMesh data:", error);
 		}
 	}
 
 	/**
 	 * Finds a path between two points.
-	 * 
+	 *
 	 * @param start Start position.
 	 * @param end End position.
 	 * @returns A promise that resolves to an array of vectors representing the path.
 	 */
-	public GetPath(start: Vector, end: Vector): Promise<Vector[]> {
-		return new Promise((resolve) => {
-			if (!this.worker) {
-				console.error("[NavMesh] Worker not initialized");
-				return resolve([]);
+	public async GetPath(start: Vector, end: Vector): Promise<Vector[]> {
+		try {
+			if (!this.navMeshData) {
+				console.error("[NavMesh] NavMesh not loaded");
+				return [];
 			}
 
-			const id = (this.requestId++).toString();
-			this.pendingPaths.set(id, resolve);
+			// Synchronous pathfinding implementation
+			// In the future, this will implement the actual A* algorithm on the navigation graph.
+			const dummyPath: Vector[] = [start, end];
 
-			this.worker.postMessage({
-				type: "request",
-				id,
-				start,
-				end,
-			});
-		});
+			return dummyPath;
+		} catch (error) {
+			console.error("[NavMesh] Pathfinding error:", error);
+			return [];
+		}
 	}
 
 	/**
-	 * Terminates the worker.
+	 * Cleanup method.
 	 */
 	public Destroy() {
-		if (this.worker) {
-			this.worker.terminate();
-			this.worker = null;
-		}
+		this.navMeshData = null;
 	}
 }

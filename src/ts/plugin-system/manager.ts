@@ -84,7 +84,7 @@ export class PluginManager extends EventEmitter implements IGameBridge {
 	}
 
 	public PrintToServerConsole(message: string): void {
-		console.log(message);
+		this.LogMessage(message, "info");
 		this.bridge.Send({
 			action: "print",
 			message: message,
@@ -925,10 +925,29 @@ export class PluginManager extends EventEmitter implements IGameBridge {
 			? msg
 			: `${prefix}${typeColor}${msg}`;
 
-		// Önce {Red} gibi etiketleri \x02 gibi kodlara çevir, sonra ANSI'ye çevir
-		const formatted = FormatColorTags(fullMessage);
-		const ansiFormatted = ToAnsi(formatted);
-		console.log(ansiFormatted);
+		// Emit log event for dashboard/listeners (with color tags)
+		// We keep tags like {Red} for the dashboard to parse them into HTML
+		this.emit("log", { message: fullMessage, type, timestamp: Date.now() });
+
+		// For local console, we convert tags to ANSI
+		console.log(ToAnsi(FormatColorTags(fullMessage)));
+	}
+
+	/**
+	 * Gets a list of all plugins available in the plugins folder.
+	 */
+	public GetAvailablePlugins(): string[] {
+		if (!existsSync(this.pluginsFolder)) return [];
+		return readdirSync(this.pluginsFolder)
+			.filter((file) => {
+				const fullPath = join(this.pluginsFolder, file);
+				const stat = statSync(fullPath);
+				if (stat.isDirectory()) return true;
+				return (
+					(file.endsWith(".ts") || file.endsWith(".js")) && file !== "index.ts"
+				);
+			})
+			.map((file) => file.replace(/\.(ts|js)$/, ""));
 	}
 
 	/**
@@ -1382,8 +1401,50 @@ export class PluginManager extends EventEmitter implements IGameBridge {
 	}
 
 	/**
-	 * Loads or reloads a plugin from a file or folder.
+	 * Gets a list of all currently loaded plugin names.
 	 */
+	public GetLoadedPlugins(): string[] {
+		return Array.from(this.loadedPlugins.keys());
+	}
+
+	/**
+	 * Reloads a specific plugin.
+	 */
+	public async ReloadPlugin(name: string): Promise<void> {
+		await this.LoadPlugin(name);
+	}
+
+	/**
+	 * Gets known maps from defaults and aliases.
+	 */
+	public GetKnownMaps(): string[] {
+		const defaultMaps = [
+			"de_ancient",
+			"de_anubis",
+			"de_dust2",
+			"de_inferno",
+			"de_mirage",
+			"de_nuke",
+			"de_overpass",
+			"de_vertigo",
+			"cs_italy",
+			"cs_office",
+		];
+		const aliasesFile = join(
+			process.cwd(),
+			"configs",
+			"core",
+			"map_aliases.json",
+		);
+		if (existsSync(aliasesFile)) {
+			try {
+				const aliases = JSON.parse(readFileSync(aliasesFile, "utf-8"));
+				return [...new Set([...defaultMaps, ...Object.keys(aliases)])].sort();
+			} catch (e) {}
+		}
+		return defaultMaps;
+	}
+
 	public GetPluginContext(name: string): any {
 		return this.loadedPlugins.get(name)?.context;
 	}

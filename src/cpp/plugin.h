@@ -6,10 +6,7 @@
 #include <vector>
 #include <string>
 #include <stdint.h>
-#include <thread>
-#include <atomic>
 #include <set>
-#include <mutex>
 #include <map>
 #include <eiface.h>
 #include <icvar.h>
@@ -48,7 +45,7 @@ public:
 	void Disconnect();
 	void Send(const uint8_t *data, uint32_t size);
 	void SendAction(const char *action, const char *extraKey = nullptr, const char *extraValue = nullptr);
-	void ReceiveThread();
+	void UpdateBridge();
 	void ProcessMessage(const uint8_t *data, uint32_t size);
 
 	void Hook_DispatchConCommand(ConCommandRef cmd, const CCommandContext &ctx, const CCommand &args);
@@ -58,10 +55,9 @@ public:
 private:
 	int m_ListenSocket;
 	int m_ClientSocket;
-	std::atomic<bool> m_Connected;
-	std::atomic<bool> m_ShouldExit;
-	std::thread m_ReceiveThread;
+	bool m_Connected;
 	pid_t m_BunPid;
+	std::vector<uint8_t> m_ReceiveBuffer;
 
 	ISmmAPI *ismm;
 	IVEngineServer *engine;
@@ -69,13 +65,8 @@ private:
 	IServerGameDLL *server;
 	ICvar *icvar;
 
-	std::mutex m_CmdMutex;
-
 	// Keep track of dynamically registered commands to avoid duplicates
 	std::map<std::string, MetaBunCommand*> m_DynamicCommands;
-
-	std::vector<std::string> m_CommandQueue;
-	std::mutex m_QueueMutex;
 };
 
 extern MetaBunBridge g_MetaBunBridge;

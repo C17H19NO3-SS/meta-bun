@@ -9,7 +9,7 @@
 		"password": "meta-bun-rcon"
 	},
 	"discord": {
-		"token": "ODg2MjIwNTk4Nzc3MzQ4MTE2.GHA3Sr.J4TcVG2VEqEpjAdMgnglbj0UHPVD9sMR13yn6I"
+		"token": ""
 	},
 	"dashboard": {
 		"port": 3000,

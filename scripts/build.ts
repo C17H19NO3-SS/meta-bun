@@ -222,10 +222,19 @@ RUN apt-get update && apt-get install -y \\
 	const vdfContent = `"Metamod Plugin"\n{\n\t"alias"\t"metabun"\n\t"file"\t"addons/meta-bun/bin/metabun_bridge_mm"\n}\n`;
 	fs.writeFileSync(path.join(metamodDir, "metabun.vdf"), vdfContent);
 
-	// 7. Copy configs, translations
-	for (const dir of ["configs", "translations"]) {
+	// 7. Copy configs, translations, and dashboard public files
+	for (const dir of [
+		"configs",
+		"translations",
+		"src/ts/addons/dashboard/public",
+	]) {
 		const srcPath = path.join(rootDir, dir);
-		const destPath = path.join(metaBunDistDir, dir);
+		let destPath = "";
+		if (dir === "src/ts/addons/dashboard/public") {
+			destPath = path.join(metaBunDistDir, "public");
+		} else {
+			destPath = path.join(metaBunDistDir, dir);
+		}
 		if (fs.existsSync(srcPath))
 			fs.cpSync(srcPath, destPath, { recursive: true });
 	}

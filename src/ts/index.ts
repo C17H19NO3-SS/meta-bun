@@ -1,16 +1,16 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { decode } from "@msgpack/msgpack";
+import { NavMesh } from "./addons/ai/navmesh";
+import { DashboardServer } from "./addons/dashboard/server";
+import { GatewayServer } from "./addons/gateway/websocket";
+import { UpdaterService } from "./addons/updater/service";
 import { BanManager } from "./admins/bans";
 import { AdminManager } from "./admins/manager";
 import { Bridge } from "./network/bridge";
 import { PlayerManager } from "./players/manager";
 import { Player } from "./players/player";
 import { PluginManager } from "./plugin-system/manager";
-import { DashboardServer } from "./addons/dashboard/server";
-import { GatewayServer } from "./addons/gateway/websocket";
-import { UpdaterService } from "./addons/updater/service";
-import { NavMesh } from "./addons/ai/navmesh";
 import { DatabaseManager } from "./shared/database";
 import { discordService } from "./shared/discord";
 import { BridgeError } from "./shared/errors";
@@ -71,7 +71,11 @@ export class MetaBunApp {
 		this.banManager = new BanManager(this.dbManager);
 		// Pass the shared DatabaseManager so PlayerManager and BanManager
 		// both operate on the same SQLite connection.
-		this.playerManager = new PlayerManager(this.dbManager, false);
+		this.playerManager = new PlayerManager(
+			this.dbManager,
+			false,
+			this.settings.steam_api_key,
+		);
 		this.playerManager.InitializeConsole(
 			this.bridge,
 			this.adminManager,
@@ -105,7 +109,10 @@ export class MetaBunApp {
 		if (existsSync(configPath)) {
 			try {
 				this.settings = JSON.parse(readFileSync(configPath, "utf-8"));
-				this.updaterService = new UpdaterService(this.pluginManager, this.settings);
+				this.updaterService = new UpdaterService(
+					this.pluginManager,
+					this.settings,
+				);
 				if (this.pluginManager) {
 					this.pluginManager.LogMessage(
 						"Merkezi ayarlar yuklendi: configs/core/settings.json",
@@ -252,10 +259,11 @@ export class MetaBunApp {
 		if (dashboardSettings?.port) {
 			this.dashboardServer = new DashboardServer(
 				dashboardSettings.port,
-				dashboardSettings.password,
-				this.adminManager,
 				this.pluginManager,
 				this.playerManager,
+				this.adminManager,
+				Bun.env["STEAM_API_KEY"] || this.settings.steam_api_key,
+				dashboardSettings.password,
 			);
 			this.dashboardServer.start();
 		}
@@ -390,7 +398,10 @@ export class MetaBunApp {
 			return;
 		}
 
-		if (anyPayload.action === "navmesh_dump" || payload.event === "navmesh_dump") {
+		if (
+			anyPayload.action === "navmesh_dump" ||
+			payload.event === "navmesh_dump"
+		) {
 			const dump = payload as any; // Cast to any because it might be action or event
 			this.navMesh.ParseNavMesh(dump.data);
 			return;

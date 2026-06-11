@@ -3,63 +3,519 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MetaBun Dashboard</title>
+    <title>MetaBun Secure Admin Dashboard</title>
     <style>
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background-color: #f0f2f5;
-            color: #1c1e21;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #0e1015;
+            color: #e0e0e0;
             margin: 0;
+            padding: 20px;
         }
         .container {
-            background-color: #fff;
-            padding: 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid #1a1d23;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+        h1 { margin: 0; color: #ffcc00; font-size: 24px; }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .stat-card {
+            background: #161920;
+            padding: 15px;
             border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            border: 1px solid #252a35;
             text-align: center;
         }
-        h1 {
-            margin-top: 0;
-            color: #1877f2;
+        .stat-value { font-size: 28px; font-weight: bold; color: #00ccff; }
+        .stat-label { font-size: 12px; color: #888; text-transform: uppercase; margin-top: 5px; }
+        
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 350px;
+            gap: 30px;
         }
-        .status {
-            margin-top: 1rem;
+        @media (max-width: 900px) {
+            .main-grid { grid-template-columns: 1fr; }
+        }
+
+        .section {
+            background: #161920;
+            border-radius: 8px;
+            border: 1px solid #252a35;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .section h3 { margin-top: 0; color: #ffcc00; border-bottom: 1px solid #333; padding-bottom: 10px; margin-bottom: 15px; font-size: 16px; }
+
+        table { width: 100%; border-collapse: collapse; }
+        th { background: #1a1d23; padding: 12px; text-align: left; color: #888; font-size: 14px; }
+        td { padding: 12px; border-bottom: 1px solid #252a35; }
+        tr:hover { background: #1d212b; }
+        
+        .team-ct { color: #4b69ff; }
+        .team-t { color: #dade32; }
+        .status-tag {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
             font-weight: bold;
+            background: #27ae60;
+            color: white;
+            margin-left: 10px;
         }
-        .details {
-            margin-top: 0.5rem;
-            font-size: 0.9rem;
-            color: #65676b;
+
+        .btn {
+            padding: 8px 16px;
+            border-radius: 4px;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 13px;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
         }
+        .btn:hover { filter: brightness(1.2); transform: translateY(-1px); }
+        .btn:active { transform: translateY(0); }
+        .btn-kick { background: #e74c3c; color: white; padding: 5px 10px; font-size: 11px; }
+        .btn-login { background: #1a1d23; color: white; border: 1px solid #444; }
+        .btn-primary { background: #3498db; color: white; }
+        .btn-success { background: #27ae60; color: white; }
+        .btn-warning { background: #f1c40f; color: #000; }
+
+        #admin-controls { display: none; }
+        
+        input, select {
+            background: #0e1015;
+            border: 1px solid #333;
+            color: white;
+            padding: 10px;
+            border-radius: 4px;
+            width: 100%;
+            box-sizing: border-box;
+            margin-bottom: 10px;
+        }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; font-size: 12px; color: #888; margin-bottom: 5px; text-transform: uppercase; }
+
+        .plugin-item {
+            background: #0e1015;
+            padding: 10px;
+            border-radius: 4px;
+            border: 1px solid #333;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .plugin-name { font-family: monospace; font-size: 14px; }
+        .plugin-actions { display: flex; gap: 5px; }
+
+        #console-output {
+            background: #000;
+            color: #ffffff;
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            height: 400px;
+            overflow-y: auto;
+            padding: 10px 15px;
+            border-radius: 0;
+            border: none;
+            margin-bottom: 0;
+            font-size: 13px;
+            line-height: 1.2;
+        }
+        .log-line { margin-bottom: 2px; white-space: pre-wrap; word-break: break-all; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>MetaBun Dashboard</h1>
-        <div id="app">
-            <p>Loading status...</p>
+        <div class="header">
+            <div>
+                <h1>METABUN // SECURE ADMIN</h1>
+                <div id="connection-status"><span class="status-tag">WEBSOCKET CONNECTED</span></div>
+            </div>
+            <div id="auth-area">
+                <button class="btn btn-login" onclick="location.href='/auth/login'">Login with Steam</button>
+            </div>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-value" id="stat-uptime">0s</div>
+                <div class="stat-label">Uptime</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="stat-players">0 / 0</div>
+                <div class="stat-label">Players</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="stat-tickrate">128</div>
+                <div class="stat-label">Tickrate</div>
+            </div>
+        </div>
+
+        <div class="main-grid">
+            <div class="left-col">
+                <div class="section">
+                    <h3>Active Players</h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Player Name</th>
+                                <th>Team</th>
+                                <th>Health</th>
+                                <th class="admin-only" style="display:none">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="player-table-body">
+                            <tr><td colspan="5" style="text-align:center; color:#555;">No players currently on server.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div id="admin-controls">
+                    <div class="section" style="padding: 0; background: #000; border: 1px solid #333; overflow: hidden;">
+                        <div id="console-output" style="height: 450px; border: none; margin: 0; border-radius: 0;">Connecting to log stream...</div>
+                        <div style="display:flex; align-items: center; background: #000; border-top: 1px solid #222; padding: 10px 15px;">
+                            <span style="color: #00ff00; font-family: monospace; margin-right: 10px; font-weight: bold;">$</span>
+                            <input type="text" id="rcon-input" placeholder="Type a command..." 
+                                style="background: transparent; border: none; outline: none; margin: 0; padding: 0; font-family: 'Consolas', monospace; color: #fff; flex: 1;"
+                                onkeyup="if(event.key==='Enter') sendRcon()">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="right-col admin-only" style="display:none">
+                <div class="section">
+                    <h3>Map Management</h3>
+                    <div class="form-group">
+                        <label>Select Map</label>
+                        <select id="map-select">
+                            <option value="">Loading maps...</option>
+                        </select>
+                        <button class="btn btn-warning" onclick="changeMap()" style="width:100%">Change Map</button>
+                    </div>
+                    <hr style="border:0; border-top:1px solid #333; margin:20px 0">
+                    <div class="form-group">
+                        <label>Quick Alias (Workshop)</label>
+                        <input type="text" id="alias-name" placeholder="lego">
+                        <input type="text" id="alias-id" placeholder="3070247085">
+                        <button class="btn btn-success" onclick="addAlias()" style="width:100%">Register Alias</button>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <h3>Plugin Manager</h3>
+                    <div id="plugin-list">Loading plugins...</div>
+                </div>
+            </div>
         </div>
     </div>
+
     <script>
-        async function fetchStatus() {
+        const uptimeEl = document.getElementById('stat-uptime');
+        const playersEl = document.getElementById('stat-players');
+        const tableBody = document.getElementById('player-table-body');
+        const statusEl = document.getElementById('connection-status');
+        const authArea = document.getElementById('auth-area');
+        const adminControls = document.getElementById('admin-controls');
+        const consoleOutput = document.getElementById('console-output');
+        const mapSelect = document.getElementById('map-select');
+        let isAdmin = false;
+        let pendingHistory = [];
+
+        const COLOR_MAP = {
+            "{Default}": "#e0e0e0",
+            "{White}": "#ffffff",
+            "{Red}": "#ff4d4d",
+            "{LightRed}": "#ff7675",
+            "{Green}": "#2ecc71",
+            "{Lime}": "#55efc4",
+            "{LightGreen}": "#a29bfe",
+            "{DarkRed}": "#c0392b",
+            "{Grey}": "#95a5a6",
+            "{Yellow}": "#f1c40f",
+            "{Gold}": "#f39c12",
+            "{Blue}": "#3498db",
+            "{DarkBlue}": "#2980b9",
+            "{Purple}": "#9b59b6",
+            "{Magenta}": "#e84393",
+            "{Orange}": "#e67e22",
+            "{Cyan}": "#00cec9",
+            // Source Engine raw hex codes support
+            "\x01": "#ffffff",
+            "\x02": "#ff4d4d",
+            "\x03": "#ff7675",
+            "\x04": "#2ecc71",
+            "\x05": "#55efc4",
+            "\x06": "#a29bfe",
+            "\x07": "#c0392b",
+            "\x08": "#95a5a6",
+            "\x09": "#f1c40f",
+            "\x0A": "#f39c12",
+            "\x0B": "#3498db",
+            "\x0C": "#2980b9",
+            "\x0E": "#9b59b6",
+            "\x0F": "#e84393",
+            "\x10": "#e67e22"
+        };
+
+        function formatColorsToHtml(text) {
+            // Escape HTML and replace tags/codes with spans
+            let html = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+            
+            // Sort keys by length descending to prevent partial replacement (e.g. {Red} vs {RedLight})
+            const keys = Object.keys(COLOR_MAP).sort((a, b) => b.length - a.length);
+            
+            for (const key of keys) {
+                const color = COLOR_MAP[key];
+                if (html.includes(key)) {
+                    html = html.split(key).join(`</span><span style="color: ${color}">`);
+                }
+            }
+            return `<span>${html}</span>`;
+        }
+
+        function connect() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
+
+            ws.onopen = () => {
+                statusEl.innerHTML = '<span class="status-tag">WEBSOCKET CONNECTED</span>';
+                refreshStatus();
+            };
+
+            ws.onmessage = (event) => {
+                const msg = JSON.parse(event.data);
+                if (msg.event === 'status_update') {
+                    updateUI(msg.data);
+                } else if (msg.event === 'log_history') {
+                    pendingHistory = msg.data;
+                    if (isAdmin) {
+                        consoleOutput.innerHTML = '';
+                        pendingHistory.forEach(log => logConsole(log.message, log.type));
+                        pendingHistory = [];
+                    }
+                } else if (msg.event === 'server_log' && isAdmin) {
+                    logConsole(msg.data.message);
+                }
+            };
+
+            ws.onclose = () => {
+                statusEl.innerHTML = '<span class="status-tag" style="background:#e74c3c;">DISCONNECTED - RETRYING...</span>';
+                setTimeout(connect, 2000);
+            };
+        }
+
+        async function refreshStatus() {
             try {
                 const response = await fetch('/api/status');
                 const data = await response.json();
-                document.getElementById('app').innerHTML = `
-                    <div class="status">Server Status: Online</div>
-                    <div class="details">Uptime: ${Math.floor(data.uptime)} seconds</div>
-                    <div class="details">Tickrate: ${data.tickrate} TPS</div>
+                
+                if (data.isAdmin !== isAdmin) {
+                    isAdmin = data.isAdmin;
+                    if (isAdmin) {
+                        authArea.innerHTML = '<span style="color:#27ae60; font-weight:bold; margin-right:15px">ADMIN MODE</span><button class="btn btn-login" onclick="logout()">Logout</button>';
+                        adminControls.style.display = 'block';
+                        document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'block');
+                        loadPlugins();
+                        loadMaps();
+                        
+                        // Apply pending history if any
+                        if (pendingHistory.length > 0) {
+                            consoleOutput.innerHTML = '';
+                            pendingHistory.forEach(log => logConsole(log.message, log.type));
+                            pendingHistory = [];
+                        }
+                    } else {
+                        authArea.innerHTML = '<button class="btn btn-login" onclick="location.href=\'/auth/login\'">Login with Steam</button>';
+                        adminControls.style.display = 'none';
+                        document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'none');
+                    }
+                }
+                updateUI(data);
+            } catch (e) {}
+        }
+
+        function formatUptime(seconds) {
+            const d = Math.floor(seconds / (3600 * 24));
+            const h = Math.floor((seconds % (3600 * 24)) / 3600);
+            const m = Math.floor((seconds % 3600) / 60);
+            const s = Math.floor(seconds % 60);
+            const parts = [];
+            if (d > 0) parts.push(`${d}d`);
+            parts.push(`${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`);
+            return parts.join(' ');
+        }
+
+        function updateUI(data) {
+            uptimeEl.textContent = formatUptime(data.uptime);
+            playersEl.textContent = `${data.playerCount} / ${data.maxPlayers}`;
+
+            tableBody.innerHTML = '';
+            if (data.players.length === 0) {
+                tableBody.innerHTML = `<tr><td colspan="${isAdmin ? 5 : 4}" style="text-align:center; color:#555;">No players currently on server.</td></tr>`;
+                return;
+            }
+
+            data.players.forEach(p => {
+                const row = document.createElement('tr');
+                const teamClass = p.team === 3 ? 'team-ct' : (p.team === 2 ? 'team-t' : '');
+                const teamName = p.team === 3 ? 'CT' : (p.team === 2 ? 'TERRORIST' : 'SPEC');
+                
+                let actionsHtml = '';
+                if (isAdmin) {
+                    actionsHtml = `<td class="admin-only"><button class="btn btn-kick" onclick="kickPlayer(${p.index})">Kick</button></td>`;
+                }
+
+                row.innerHTML = `
+                    <td>${p.index}</td>
+                    <td style="font-weight:bold;">${p.name} ${p.steamId ? `<br><small style="color:#666">${p.steamId}</small>` : ''}</td>
+                    <td class="${teamClass}">${teamName}</td>
+                    <td style="color: ${p.health > 50 ? '#27ae60' : '#e74c3c'}">${p.health} HP</td>
+                    ${actionsHtml}
                 `;
-            } catch (error) {
-                document.getElementById('app').innerHTML = `<p style="color: red;">Error loading status</p>`;
+                tableBody.appendChild(row);
+            });
+        }
+
+        async function kickPlayer(userId) {
+            if (!confirm(`Are you sure you want to kick user #${userId}?`)) return;
+            const res = await apiPost('/api/admin/kick', { userId });
+            if (res.ok) logConsole(`{Red}[ADMIN]{Default} Player #${userId} kicked.`);
+        }
+
+        async function loadMaps() {
+            const res = await fetch('/api/admin/maps');
+            if (res.ok) {
+                const { maps } = await res.json();
+                mapSelect.innerHTML = maps.map(m => `<option value="${m}">${m}</option>`).join('');
             }
         }
-        fetchStatus();
-        setInterval(fetchStatus, 5000);
+
+        async function changeMap() {
+            const mapName = mapSelect.value;
+            if (!mapName) return;
+            const res = await apiPost('/api/admin/map', { mapName });
+            if (res.ok) logConsole(`{Yellow}[ADMIN]{Default} Changing map to ${mapName}...`);
+        }
+
+        async function addAlias() {
+            const name = document.getElementById('alias-name').value;
+            const workshopId = document.getElementById('alias-id').value;
+            if (!name || !workshopId) return;
+            const res = await apiPost('/api/admin/mapalias', { name, workshopId });
+            if (res.ok) {
+                logConsole(`{Green}[ADMIN]{Default} Alias added: ${name} -> ${workshopId}`);
+                document.getElementById('alias-name').value = '';
+                document.getElementById('alias-id').value = '';
+                loadMaps();
+            }
+        }
+
+        async function sendRcon() {
+            const input = document.getElementById('rcon-input');
+            const command = input.value;
+            if (!command) return;
+            logConsole(`{Cyan}> ${command}{Default}`);
+            input.value = '';
+            const res = await apiPost('/api/admin/rcon', { command });
+        }
+
+        async function loadPlugins() {
+            const resPl = await fetch('/api/admin/plugins');
+            if (resPl.ok) {
+                const { loaded, available } = await resPl.json();
+                const container = document.getElementById('plugin-list');
+                
+                const allNames = [...new Set([...loaded, ...available])].sort();
+                
+                container.innerHTML = allNames.map(p => {
+                    const isLoaded = loaded.includes(p);
+                    return `
+                        <div class="plugin-item" style="${isLoaded ? '' : 'opacity:0.6'}">
+                            <span class="plugin-name">${p} ${isLoaded ? '<small style="color:#27ae60">[Active]</small>' : '<small style="color:#888">[Disabled]</small>'}</span>
+                            <div class="plugin-actions">
+                                ${isLoaded 
+                                    ? `<button class="btn btn-primary" onclick="reloadPlugin('${p}')" style="padding:4px 8px; font-size:10px">Reload</button>
+                                       <button class="btn btn-kick" onclick="unloadPlugin('${p}')" style="padding:4px 8px; font-size:10px">Unload</button>`
+                                    : `<button class="btn btn-success" onclick="loadPlugin('${p}')" style="padding:4px 8px; font-size:10px">Load</button>`
+                                }
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+        }
+
+        async function loadPlugin(pluginName) {
+            const res = await apiPost('/api/admin/plugins/load', { pluginName });
+            if (res.ok) {
+                logConsole(`{Green}[ADMIN]{Default} Plugin ${pluginName} loaded.`);
+                loadPlugins();
+            }
+        }
+
+        async function reloadPlugin(pluginName) {
+            const res = await apiPost('/api/admin/plugins/reload', { pluginName });
+            if (res.ok) logConsole(`{Yellow}[ADMIN]{Default} Plugin ${pluginName} reloaded.`);
+        }
+
+        async function unloadPlugin(pluginName) {
+            if (!confirm(`Are you sure you want to unload ${pluginName}?`)) return;
+            const res = await apiPost('/api/admin/plugins/unload', { pluginName });
+            if (res.ok) {
+                logConsole(`{Red}[ADMIN]{Default} Plugin ${pluginName} unloaded.`);
+                loadPlugins();
+            }
+        }
+
+        async function apiPost(url, data) {
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            if (!res.ok) {
+                const text = await res.text();
+                logConsole(`{Red}[ERROR]{Default} Action failed: ${text}`);
+            }
+            return res;
+        }
+
+        function logConsole(msg) {
+            if (consoleOutput.textContent === 'Connecting to log stream...') consoleOutput.innerHTML = '';
+            const div = document.createElement('div');
+            div.className = 'log-line';
+            div.innerHTML = formatColorsToHtml(msg);
+            consoleOutput.appendChild(div);
+            consoleOutput.scrollTop = consoleOutput.scrollHeight;
+            
+            if (consoleOutput.children.length > 2000) consoleOutput.removeChild(consoleOutput.firstChild);
+        }
+
+        function logout() {
+            document.cookie = "session=; Path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;";
+            location.reload();
+        }
+
+        connect();
+        setInterval(refreshStatus, 5000);
     </script>
 </body>
 </html>
