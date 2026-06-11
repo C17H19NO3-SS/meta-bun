@@ -599,7 +599,10 @@ void MetaBunBridge::ProcessMessage(const uint8_t *data, uint32_t size)
 	}
 	
 	if (action == "server_cmd") {
-		if (!cmd.empty()) engine->ServerCommand(cmd.c_str());
+		if (!cmd.empty()) {
+			std::lock_guard<std::mutex> lock(m_QueueMutex);
+			m_CommandQueue.push_back(cmd);
+		}
 	} 
 	else if (action == "auth") {
 		SendAction("auth_success");
@@ -652,7 +655,8 @@ void MetaBunBridge::ProcessMessage(const uint8_t *data, uint32_t size)
 		if (!message.empty()) {
 			char cmdBuf[1280];
 			snprintf(cmdBuf, sizeof(cmdBuf), "say %s", message.c_str());
-			engine->ServerCommand(cmdBuf);
+			std::lock_guard<std::mutex> lock(m_QueueMutex);
+			m_CommandQueue.push_back(cmdBuf);
 		}
 	}
 	else if (action == "kick_client") {
