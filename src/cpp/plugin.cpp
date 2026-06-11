@@ -17,6 +17,8 @@
 MetaBunBridge g_MetaBunBridge;
 PLUGIN_EXPOSE(MetaBunBridge, g_MetaBunBridge);
 
+SH_DECL_HOOK3_void(IServerGameDLL, GameFrame, SH_NOATTRIB, 0, bool, bool, bool);
+
 // Generic callback for dynamic commands
 static void DynamicCommandCallback(const CCommandContext &context, const CCommand &args) {
 	g_MetaBunBridge.OnDynamicCommand(context, args);
@@ -53,6 +55,7 @@ bool MetaBunBridge::Load(PluginId id, ISmmAPI *ismm, char *error, size_t maxlen,
 
 	GET_V_IFACE_CURRENT(GetEngineFactory, engine, IVEngineServer, INTERFACEVERSION_VENGINESERVER);
 	GET_V_IFACE_CURRENT(GetServerFactory, gameclients, IServerGameClients, INTERFACEVERSION_SERVERGAMECLIENTS);
+	GET_V_IFACE_CURRENT(GetServerFactory, server, IServerGameDLL, INTERFACEVERSION_SERVERGAMEDLL);
 	GET_V_IFACE_CURRENT(GetEngineFactory, icvar, ICvar, CVAR_INTERFACE_VERSION);
 
 	if (!engine)
@@ -67,6 +70,12 @@ bool MetaBunBridge::Load(PluginId id, ISmmAPI *ismm, char *error, size_t maxlen,
 		return false;
 	}
 
+	if (!server)
+	{
+		snprintf(error, maxlen, "Failed to get IServerGameDLL interface");
+		return false;
+	}
+
 	if (!icvar)
 	{
 		snprintf(error, maxlen, "Failed to get ICvar interface");
@@ -77,6 +86,7 @@ bool MetaBunBridge::Load(PluginId id, ISmmAPI *ismm, char *error, size_t maxlen,
 	g_pCVar = icvar;
 
 	SH_ADD_HOOK(ICvar, DispatchConCommand, icvar, SH_MEMBER(this, &MetaBunBridge::Hook_DispatchConCommand), false);
+	SH_ADD_HOOK(IServerGameDLL, GameFrame, server, SH_MEMBER(this, &MetaBunBridge::OnGameFrame), true);
 
 	m_ListenSocket = -1;
 	m_ClientSocket = -1;
@@ -107,6 +117,7 @@ bool MetaBunBridge::Unload(char *error, size_t maxlen)
 	}
 
 	SH_REMOVE_HOOK(ICvar, DispatchConCommand, icvar, SH_MEMBER(this, &MetaBunBridge::Hook_DispatchConCommand), false);
+	SH_REMOVE_HOOK(IServerGameDLL, GameFrame, server, SH_MEMBER(this, &MetaBunBridge::OnGameFrame), true);
 
 	// Unregister and delete dynamic commands
 	{
@@ -713,3 +724,7 @@ const char *MetaBunBridge::GetLicense() { return "MIT"; }
 const char *MetaBunBridge::GetVersion() { return "1.0.0"; }
 const char *MetaBunBridge::GetDate() { return __DATE__; }
 const char *MetaBunBridge::GetLogTag() { return "METABUN"; }
+
+void MetaBunBridge::OnGameFrame(bool simulating, bool bFirstTick, bool bLastTick)
+{
+}
