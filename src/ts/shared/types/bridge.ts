@@ -207,6 +207,14 @@ export interface IGameBridge {
 		pitch?: number,
 	): void;
 
+	// Engine Depth
+	/** Finds all entities within a specific radius of a location. */
+	GetEntitiesInRadius(origin: { x: number; y: number; z: number }, radius: number): Promise<number[]>;
+	/** Finds the first entity with a specific classname. */
+	FindEntityByClassname(classname: string): Promise<number>;
+	/** Sends a high-level JSON object as a Protobuf message to the engine. */
+	SendProtobuf(msgName: string, data: Record<string, unknown>): void;
+
 	// Permissions
 	/** Checks if a client has specific admin permission flags. */
 	CheckCommandAccess(client: number, command: string, flags: string): boolean;

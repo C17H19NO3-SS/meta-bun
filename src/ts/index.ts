@@ -10,6 +10,7 @@ import { PluginManager } from "./plugin-system/manager";
 import { DashboardServer } from "./addons/dashboard/server";
 import { GatewayServer } from "./addons/gateway/websocket";
 import { UpdaterService } from "./addons/updater/service";
+import { NavMesh } from "./addons/ai/navmesh";
 import { DatabaseManager } from "./shared/database";
 import { discordService } from "./shared/discord";
 import { BridgeError } from "./shared/errors";
@@ -37,6 +38,7 @@ export class MetaBunApp {
 	private adminManager: AdminManager;
 	private banManager: BanManager;
 	private dbManager: DatabaseManager;
+	private navMesh: NavMesh;
 	private socketBuffers: Map<BunSocket, Buffer> = new Map();
 	private authenticatedSockets: Set<BunSocket> = new Set();
 	private protocol: BridgeProtocol = "ndjson";
@@ -82,6 +84,8 @@ export class MetaBunApp {
 			true,
 			this.GetEngineTime.bind(this),
 		);
+
+		this.navMesh = new NavMesh();
 
 		this.LoadSettings();
 
@@ -383,6 +387,12 @@ export class MetaBunApp {
 			return;
 		}
 
+		if (anyPayload.action === "navmesh_dump" || payload.event === "navmesh_dump") {
+			const dump = payload as any; // Cast to any because it might be action or event
+			this.navMesh.ParseNavMesh(dump.data);
+			return;
+		}
+
 		// Handle player management events
 		if (payload.event === "PlayerConnect") {
 			const conn = payload as PlayerConnectEvent;
@@ -477,6 +487,7 @@ export class MetaBunApp {
 			this.updaterService.stop();
 			this.updaterService = null;
 		}
+		this.navMesh.Destroy();
 		await this.pluginManager.Stop();
 	}
 
@@ -486,6 +497,10 @@ export class MetaBunApp {
 
 	public GetPlayerManager(): PlayerManager {
 		return this.playerManager;
+	}
+
+	public GetNavMesh(): NavMesh {
+		return this.navMesh;
 	}
 
 	/**

@@ -385,3 +385,28 @@ export function GetState<T>(key: string, initialValue: T): T {
 export function SetState<T>(key: string, value: T): void {
 	GetContext().SetState(key, value);
 }
+
+/**
+ * Finds all entities within a specific radius of a location.
+ */
+export function GetEntitiesInRadius(
+	origin: { x: number; y: number; z: number },
+	radius: number,
+): Promise<number[]> {
+	return GetContext().GetEntitiesInRadius(origin, radius);
+}
+
+/**
+ * Finds the first entity with a specific classname.
+ */
+export function FindEntityByClassname(classname: string): Promise<number> {
+	return GetContext().FindEntityByClassname(classname);
+}
+
+/**
+ * Sends a high-level JSON object as a Protobuf message to the engine.
+ */
+export function SendProtobuf(msgName: string, data: Record<string, unknown>): void {
+	GetContext().SendProtobuf(msgName, data);
+}
+

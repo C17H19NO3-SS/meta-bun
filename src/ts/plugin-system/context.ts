@@ -253,6 +253,32 @@ export class PluginContext implements IGameBridge {
 	}
 
 	// Messaging
+	public async GetEntitiesInRadius(
+		origin: { x: number; y: number; z: number },
+		radius: number,
+	): Promise<number[]> {
+		return await this.bridge.SendAsync({
+			action: "GetEntitiesInRadius",
+			origin,
+			radius,
+		});
+	}
+
+	public async FindEntityByClassname(classname: string): Promise<number> {
+		return await this.bridge.SendAsync({
+			action: "FindEntityByClassname",
+			classname,
+		});
+	}
+
+	public SendProtobuf(msgName: string, data: Record<string, unknown>): void {
+		this.bridge.Send({
+			action: "send_protobuf",
+			msg_name: msgName,
+			data,
+		});
+	}
+
 	public async PrintToChat(client: number, message: string): Promise<void> {
 		if (commandSourceStore.getStore() === "console") {
 			return this.PrintToConsole(client, message);

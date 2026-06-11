@@ -24,6 +24,7 @@ export interface EventMap {
 	ping: PingEvent;
 	BridgeLatencyUpdate: BridgeLatencyUpdateEvent;
 	auth: AuthEvent;
+	navmesh_dump: NavMeshDumpEvent;
 }
 
 /**
@@ -31,7 +32,16 @@ export interface EventMap {
  */
 export interface GameEvent {
 	event: string;
-	[key: string]: string | number | boolean | undefined;
+	[key: string]: string | number | boolean | Buffer | Uint8Array | undefined;
+}
+
+/**
+ * Emitted when the C++ bridge dumps the full NavMesh binary data.
+ */
+export interface NavMeshDumpEvent extends GameEvent {
+	event: "navmesh_dump";
+	/** Binary data of the NavMesh. */
+	data: Buffer;
 }
 
 /**
