@@ -727,4 +727,20 @@ const char *MetaBunBridge::GetLogTag() { return "METABUN"; }
 
 void MetaBunBridge::OnGameFrame(bool simulating, bool bFirstTick, bool bLastTick)
 {
+	if (m_CommandQueue.empty())
+	{
+		return;
+	}
+
+	std::vector<std::string> localQueue;
+	{
+		std::lock_guard<std::mutex> lock(m_QueueMutex);
+		localQueue = std::move(m_CommandQueue);
+		m_CommandQueue.clear();
+	}
+
+	for (const std::string& cmd : localQueue)
+	{
+		engine->ServerCommand(cmd.c_str());
+	}
 }
