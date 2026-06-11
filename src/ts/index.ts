@@ -253,6 +253,7 @@ export class MetaBunApp {
 			this.dashboardServer = new DashboardServer(
 				dashboardSettings.port,
 				dashboardSettings.password,
+				this.adminManager,
 			);
 			this.dashboardServer.start();
 		}
