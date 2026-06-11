@@ -53,6 +53,7 @@ public:
 
 	void Hook_DispatchConCommand(ConCommandRef cmd, const CCommandContext &ctx, const CCommand &args);
 	void OnDynamicCommand(const CCommandContext &context, const CCommand &args);
+	void OnGameFrame(bool simulating, bool bFirstTick, bool bLastTick);
 
 private:
 	int m_ListenSocket;
@@ -65,12 +66,16 @@ private:
 	ISmmAPI *ismm;
 	IVEngineServer *engine;
 	IServerGameClients *gameclients;
+	IServerGameDLL *server;
 	ICvar *icvar;
 
 	std::mutex m_CmdMutex;
 
 	// Keep track of dynamically registered commands to avoid duplicates
 	std::map<std::string, MetaBunCommand*> m_DynamicCommands;
+
+	std::vector<std::string> m_CommandQueue;
+	std::mutex m_QueueMutex;
 };
 
 extern MetaBunBridge g_MetaBunBridge;
